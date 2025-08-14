@@ -16,42 +16,41 @@ func main() {
 	}
 	defer db.Close()
 
-	// 1. Cargar las plantillas HTML
+	// 1. Cargar las plantillas HTML usando tu función ParseTemplates de embed.go
 	templates := ParseTemplates()
 
 	// 2. Inicializar los handlers con las plantillas cargadas
 	handlers.InitHandlers(templates)
 
+	// 3. Inicializar el almacén de sesiones
 	auth.InitStore()
 
 	mux := http.NewServeMux()
 
-	// Rutas publicas
+	// --- Rutas Públicas (sin autenticación) ---
 	mux.HandleFunc("GET /login", handlers.LoginPage)
 	mux.HandleFunc("POST /login", handlers.Login)
 	mux.HandleFunc("GET /force-password-change", handlers.ForcePasswordChangePage)
 	mux.HandleFunc("POST /force-password-change", handlers.ForcePasswordChange)
+	mux.HandleFunc("POST /logout", handlers.Logout) // Logout debe ser accesible para cerrar sesión
 
-	// Rutas protegidas por autenticacion
-	mux.Handle("GET /dashboard", handlers.AuthMiddleware(http.HandlerFunc(handlers.DashboardPage)))
-	mux.Handle("GET /dashboard/connections", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetConnectionsDropdown)))
-	mux.Handle("POST /dashboard/select-connection", handlers.AuthMiddleware(http.HandlerFunc(handlers.SelectConnection)))
-	mux.Handle("GET /dashboard/data", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetDashboardData)))
+	// --- Rutas Protegidas (requieren autenticación) ---
+	protected := http.NewServeMux()
+	protected.HandleFunc("GET /dashboard", handlers.DashboardPage)
+	protected.HandleFunc("POST /dashboard/select-connection", handlers.SelectConnection)
+	protected.HandleFunc("GET /dashboard/data", handlers.GetDashboardData)
 
-	mux.Handle("GET /connections", handlers.AuthMiddleware(http.HandlerFunc(handlers.ConnectionsPage)))
-	mux.Handle("POST /connections", handlers.AuthMiddleware(http.HandlerFunc(handlers.AddConnection)))
-	mux.Handle("DELETE /connections/{id}", handlers.AuthMiddleware(http.HandlerFunc(handlers.DeleteConnection)))
+	protected.HandleFunc("GET /connections", handlers.ConnectionsPage)
+	protected.HandleFunc("POST /connections", handlers.AddConnection)
+	protected.HandleFunc("DELETE /connections/{id}", handlers.DeleteConnection)
 
-	mux.Handle("GET /users", handlers.AuthMiddleware(http.HandlerFunc(handlers.UsersPage)))
-	mux.Handle("POST /users", handlers.AuthMiddleware(http.HandlerFunc(handlers.AddUser)))
+	protected.HandleFunc("GET /users", handlers.UsersPage)
+	protected.HandleFunc("POST /users", handlers.AddUser)
 
-	mux.Handle("POST /logout", handlers.AuthMiddleware(http.HandlerFunc(handlers.Logout)))
+	// Aplicar el middleware a todas las rutas protegidas
+	mux.Handle("/", handlers.AuthMiddleware(protected))
 
-	// Ruta raiz redirige al dashboard si esta autenticado, si no al login
-	mux.Handle("/", handlers.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/dashboard", http.StatusFound)
-	})))
-
+	// --- Iniciar Servidor ---
 	log.Println("Servidor iniciado en http://localhost:8080")
 	if err := http.ListenAndServe(":8080", mux); err != nil {
 		log.Fatalf("Error al iniciar el servidor: %v", err)

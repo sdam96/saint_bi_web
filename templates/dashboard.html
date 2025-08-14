@@ -1,161 +1,28 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Dashboard Gerencial</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-    <style>
-        body { font-family: sans-serif; }
-        nav, .dashboard-grid { max-width: 1200px; margin: 0 auto; padding: 10px; }
-        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
-        .card { border: 1px solid #ccc; border-radius: 8px; padding: 15px; }
-        .card h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-        .card ul { padding-left: 0; list-style: none; }
-        .card li { display: flex; justify-content: space-between; padding: 5px 0; }
-    </style>
-</head>
-<body>
-    <nav>
-        <a href="/dashboard">Dashboard</a> |
-        <a href="/connections">Conexiones</a> |
-        <a href="/users">Usuarios</a> |
-        <form action="/logout" method="post" style="display:inline;"><button type="submit">Salir</button></form>
-    </nav>
-    <hr>
-    
-    <div style="text-align: center; padding: 20px;">
-        <h1>Dashboard Gerencial</h1>
-        <div id="connection-selector">
-            <label for="connection_id">Seleccionar Conexión:</label>
-            <select name="connection_id" hx-post="/dashboard/select-connection" hx-target="#dashboard-data" hx-swap="innerHTML">
-                <option value="">-- Seleccione una conexión --</option>
-                {{range .Connections}}
-                <option value="{{.ID}}" {{if eq .ID $.SelectedConnectionID}}selected{{end}}>{{.Alias}}</option>
-                {{end}}
-            </select>
-        </div>
+{{define "dashboard-content"}}
+<div style="text-align: center; padding: 20px;">
+    <h1>Dashboard Gerencial</h1>
+    <div id="connection-selector">
+        <label for="connection_id">Seleccionar Conexión:</label>
+        <select name="connection_id" hx-post="/dashboard/select-connection" hx-target="#dashboard-data" hx-swap="innerHTML">
+            <option value="">-- Seleccione una conexión --</option>
+            {{range .Connections}}
+            <option value="{{.ID}}" {{if eq .ID $.SelectedConnectionID}}selected{{end}}>{{.Alias}}</option>
+            {{end}}
+        </select>
     </div>
+</div>
 
-    <div id="dashboard-data">
-        {{if .Summary}}
-            {{template "summary-data" .}}
-        {{else if .Error}}
-            <p style="color:red; text-align:center;">Error al cargar los datos: {{.Error}}</p>
-        {{else if .SelectedConnectionID}}
+<div id="dashboard-data" class="dashboard-grid">
+    {{if .Summary}}
+        {{template "summary-data" .}}
+    {{else if .Error}}
+        <p style="color:red; text-align:center;">Error al cargar los datos: {{.Error}}</p>
+    {{else if .SelectedConnectionID}}
+         <div hx-get="/dashboard/data?connection_id={{.SelectedConnectionID}}" hx-trigger="load" hx-swap="innerHTML">
             <p style="text-align:center;">Cargando datos...</p>
-        {{else}}
-            <p style="text-align:center;">Seleccione una conexión para ver los datos.</p>
-        {{end}}
-    </div>
-
-</body>
-</html>
-
-{{define "summary-data"}}
-<div id="summary-content" 
-     {{if and .Summary .Refresh}}
-     hx-get="/dashboard/data" 
-     hx-trigger="every {{.Refresh}}s" 
-     hx-swap="innerHTML"
-     {{end}}>
-    
-    {{if .Error}}
-        <p style="color:red; text-align:center;">Error al actualizar: {{.Error}}</p>
-    {{else if .Summary}}
-    <div class="dashboard-grid">
-        <div class="card">
-            <h3>Ventas y Utilidad (Últimos 30 días)</h3>
-            <ul>
-                <li><span>Total Ventas Netas:</span> <strong>{{printf "%.2f" .Summary.TotalNetSales}}</strong></li>
-                <li><span>Ventas de Contado:</span> <strong>{{printf "%.2f" .Summary.TotalNetSalesCash}}</strong></li>
-                <li><span>Ventas a Crédito:</span> <strong>{{printf "%.2f" .Summary.TotalNetSalesCredit}}</strong></li>
-                <li><span>Costo de Ventas:</span> <strong>{{printf "%.2f" .Summary.CostOfGoodsSold}}</strong></li>
-                <li><span>Utilidad Bruta:</span> <strong>{{printf "%.2f" .Summary.GrossProfit}}</strong></li>
-                <li><span>Margen Bruto:</span> <strong>{{printf "%.2f" .Summary.GrossProfitMargin}}%</strong></li>
-                <li><span>Ticket Promedio:</span> <strong>{{printf "%.2f" .Summary.AverageTicket}}</strong></li>
-            </ul>
         </div>
-
-        <div class="card">
-            <h3>Cuentas por Cobrar</h3>
-            <ul>
-                <li><span>Total por Cobrar:</span> <strong>{{printf "%.2f" .Summary.TotalReceivables}}</strong></li>
-                <li><span>Monto Vencido:</span> <strong>{{printf "%.2f" .Summary.OverdueReceivables}}</strong></li>
-                <li><span>Porcentaje Vencido:</span> <strong>{{printf "%.2f" .Summary.ReceivablePercentage}}%</strong></li>
-                <li><span>Días en la Calle:</span> <strong>{{printf "%.0f" .Summary.ReceivablesTurnoverDays}}</strong></li>
-                <li><span>Clientes Activos con Deuda:</span> <strong>{{.Summary.ActiveClientsWithDebt}}</strong></li>
-                <li><span>Clientes con Deuda Vencida:</span> <strong>{{.Summary.TotalClientsWithOverdue}}</strong></li>
-            </ul>
-        </div>
-
-        <div class="card">
-            <h3>Cuentas por Pagar</h3>
-            <ul>
-                <li><span>Total por Pagar:</span> <strong>{{printf "%.2f" .Summary.TotalPayables}}</strong></li>
-                <li><span>Monto Vencido:</span> <strong>{{printf "%.2f" .Summary.OverduePayables}}</strong></li>
-                <li><span>Días de Compras por Pagar:</span> <strong>{{printf "%.0f" .Summary.PayablesTurnoverDays}}</strong></li>
-            </ul>
-        </div>
-
-        <div class="card">
-            <h3>Totales Generales</h3>
-            <ul>
-                <li><span>Total Facturas Emitidas:</span> <strong>{{.Summary.TotalInvoices}}</strong></li>
-                <li><span>Clientes Activos:</span> <strong>{{.Summary.TotalActiveClients}}</strong></li>
-                <li><span>Productos Activos:</span> <strong>{{.Summary.TotalActiveProducts}}</strong></li>
-            </ul>
-        </div>
-        
-        <div class="card">
-            <h3>Impuestos y Retenciones</h3>
-            <ul>
-                <li><span>IVA Débito Fiscal (Ventas):</span> <strong>{{printf "%.2f" .Summary.SalesVAT}}</strong></li>
-                <li><span>IVA Crédito Fiscal (Compras):</span> <strong>{{printf "%.2f" .Summary.PurchasesVAT}}</strong></li>
-                <li><span>Total IVA por Pagar:</span> <strong>{{printf "%.2f" .Summary.VATPayable}}</strong></li>
-                <li><span>IVA Retenido por Clientes:</span> <strong>{{printf "%.2f" .Summary.SalesIVAWithheld}}</strong></li>
-                <li><span>IVA Retenido a Proveedores:</span> <strong>{{printf "%.2f" .Summary.PurchasesIVAWithheld}}</strong></li>
-            </ul>
-        </div>
-        
-        <div class="card">
-            <h3>Top 5 Productos por Venta</h3>
-            <ul>
-                {{range .Summary.Top5ProductsBySales}}
-                <li><span>{{.Name}}</span> <strong>{{printf "%.2f" .Value}}</strong></li>
-                {{end}}
-            </ul>
-        </div>
-        
-        <div class="card">
-            <h3>Top 5 Productos por Utilidad</h3>
-            <ul>
-                {{range .Summary.Top5ProductsByProfit}}
-                <li><span>{{.Name}}</span> <strong>{{printf "%.2f" .Value}}</strong></li>
-                {{end}}
-            </ul>
-        </div>
-
-        <div class="card">
-            <h3>Top 5 Clientes por Venta</h3>
-            <ul>
-                {{range .Summary.Top5ClientsBySales}}
-                <li><span>{{.Name}}</span> <strong>{{printf "%.2f" .Value}}</strong></li>
-                {{end}}
-            </ul>
-        </div>
-
-        <div class="card">
-            <h3>Top 5 Vendedores por Venta</h3>
-            <ul>
-                {{range .Summary.Top5SellersBySales}}
-                <li><span>{{.Name}}</span> <strong>{{printf "%.2f" .Value}}</strong></li>
-                {{end}}
-            </ul>
-        </div>
-
-    </div>
     {{else}}
-        <p style="text-align:center;">Cargando datos...</p>
+        <p style="text-align:center;">Seleccione una conexión para ver los datos.</p>
     {{end}}
 </div>
 {{end}}

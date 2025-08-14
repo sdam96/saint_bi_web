@@ -1,55 +1,48 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Conexiones</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-</head>
-<body>
-    <nav>
-        <a href="/dashboard">Dashboard</a> |
-        <a href="/connections">Conexiones</a> |
-        <a href="/users">Usuarios</a> |
-        <form action="/logout" method="post" style="display:inline;"><button type="submit">Salir</button></form>
-    </nav>
-    <hr>
-    <h1>Gestionar Conexiones</h1>
+{{define "connections-content"}}
+<h1>Gestionar Conexiones</h1>
 
-    <div id="connection-list">
-        <h2>Conexiones Existentes</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Alias</th>
-                    <th>URL</th>
-                    <th>Usuario API</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody>
-                {{range .Connections}}
-                <tr id="conn-{{.ID}}">
-                    <td>{{.Alias}}</td>
-                    <td>{{.ApiURL}}</td>
-                    <td>{{.ApiUser}}</td>
-                    <td><button hx-delete="/connections/{{.ID}}" hx-target="#conn-{{.ID}}" hx-swap="outerHTML">Eliminar</button></td>
-                </tr>
-                {{end}}
-            </tbody>
-        </table>
-    </div>
+<div id="connection-list-wrapper">
+     {{template "connection-list" .}}
+</div>
 
-    <hr>
+<hr>
 
-    <h2>Agregar Nueva Conexión</h2>
-    <form hx-post="/connections" hx-target="#connection-list" hx-swap="innerHTML">
-        <div><label>Alias: <input type="text" name="alias" required></label></div>
-        <div><label>URL API: <input type="text" name="api_url" required placeholder="http://localhost:6163"></label></div>
-        <div><label>Usuario API: <input type="text" name="api_user" required></label></div>
-        <div><label>Clave API: <input type="password" name="api_password" required></label></div>
-        <div><label>ID Configuración: <input type="number" name="config_id" value="1" required></label></div>
-        <div><label>Refrescar cada (segundos): <input type="number" name="refresh_seconds" value="60" required></label></div>
-        <button type="submit">Guardar Conexión</button>
-    </form>
-</body>
-</html>
+<h2>Agregar Nueva Conexión</h2>
+<form hx-post="/connections" hx-target="#connection-list-wrapper" hx-swap="innerHTML" onsubmit="this.reset()">
+    <div><label>Alias: <input type="text" name="alias" required></label></div>
+    <div><label>URL API: <input type="text" name="api_url" required placeholder="http://localhost:6163"></label></div>
+    <div><label>Usuario API: <input type="text" name="api_user" required></label></div>
+    <div><label>Clave API: <input type="password" name="api_password" required></label></div>
+    <div><label>ID Configuración: <input type="number" name="config_id" value="1" required></label></div>
+    <div><label>Refrescar cada (segundos): <input type="number" name="refresh_seconds" value="60" required></label></div>
+    <button type="submit">Guardar Conexión</button>
+</form>
+{{end}}
+
+{{define "connection-list"}}
+<h2>Conexiones Existentes</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Alias</th>
+            <th>URL</th>
+            <th>Usuario API</th>
+            <th>Acción</th>
+        </tr>
+    </thead>
+    <tbody>
+        {{range .Connections}}
+        <tr id="conn-{{.ID}}">
+            <td>{{.Alias}}</td>
+            <td>{{.ApiURL}}</td>
+            <td>{{.ApiUser}}</td>
+            <td><button hx-delete="/connections/{{.ID}}" hx-target="#conn-{{.ID}}" hx-swap="outerHTML">Eliminar</button></td>
+        </tr>
+        {{else}}
+        <tr>
+            <td colspan="4" style="text-align: center;">No hay conexiones configuradas.</td>
+        </tr>
+        {{end}}
+    </tbody>
+</table>
+{{end}}

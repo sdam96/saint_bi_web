@@ -9,16 +9,34 @@ import (
 	"saintnet.com/m/internal/database"
 )
 
-// LoginPage muestra la página de inicio de sesión.
 func LoginPage(w http.ResponseWriter, r *http.Request) {
 	if auth.IsLoggedIn(r) {
 		http.Redirect(w, r, "/dashboard", http.StatusFound)
 		return
 	}
-	templates.ExecuteTemplate(w, "login.html", nil)
+
+	data := map[string]interface{}{
+		"ShowNavbar": false,
+		"Template":   "login", // Indica a base.html qué contenido mostrar
+	}
+
+	if err := templates.ExecuteTemplate(w, "base.html", data); err != nil {
+		log.Printf("Error al ejecutar plantilla de login: %v", err)
+	}
 }
 
-// Login maneja el envío del formulario de inicio de sesión.
+func ForcePasswordChangePage(w http.ResponseWriter, r *http.Request) {
+	data := map[string]interface{}{
+		"ShowNavbar": false,
+		"Template":   "force-password-change", // Indica a base.html qué contenido mostrar
+	}
+
+	if err := templates.ExecuteTemplate(w, "base.html", data); err != nil {
+		log.Printf("Error al ejecutar plantilla de cambio de clave: %v", err)
+	}
+}
+
+// El resto del archivo (Login, Logout, ForcePasswordChange) no necesita cambios.
 func Login(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	username := r.FormValue("username")
@@ -50,20 +68,17 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Logout cierra la sesión del usuario.
 func Logout(w http.ResponseWriter, r *http.Request) {
 	session, _ := auth.Store.Get(r, "session-name")
 	session.Values["authenticated"] = false
+	delete(session.Values, "userID")
+	delete(session.Values, "username")
+	delete(session.Values, "connectionID")
+	session.Options.MaxAge = -1 // Borrar la cookie
 	session.Save(r, w)
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
-// ForcePasswordChangePage muestra la página de cambio de contraseña forzado.
-func ForcePasswordChangePage(w http.ResponseWriter, r *http.Request) {
-	templates.ExecuteTemplate(w, "force-password-change.html", nil)
-}
-
-// ForcePasswordChange maneja el cambio de contraseña.
 func ForcePasswordChange(w http.ResponseWriter, r *http.Request) {
 	session, _ := auth.Store.Get(r, "session-name")
 	userID, ok := session.Values["userID"].(int)

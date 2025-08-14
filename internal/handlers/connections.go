@@ -9,7 +9,6 @@ import (
 	"saintnet.com/m/internal/models"
 )
 
-// ConnectionsPage muestra la página de gestión de conexiones.
 func ConnectionsPage(w http.ResponseWriter, r *http.Request) {
 	connections, err := database.GetConnections()
 	if err != nil {
@@ -17,12 +16,19 @@ func ConnectionsPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error del servidor", http.StatusInternalServerError)
 		return
 	}
-	templates.ExecuteTemplate(w, "connections.html", map[string]interface{}{
+
+	data := map[string]interface{}{
 		"Connections": connections,
-	})
+		"ShowNavbar":  true,
+		"Template":    "connections", // Indica a base.html qué contenido mostrar
+	}
+
+	if err := templates.ExecuteTemplate(w, "base.html", data); err != nil {
+		log.Printf("Error al ejecutar plantilla de conexiones: %v", err)
+	}
 }
 
-// AddConnection agrega una nueva conexión.
+// El resto del archivo (AddConnection, DeleteConnection) no necesita cambios.
 func AddConnection(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	refresh, _ := strconv.Atoi(r.FormValue("refresh_seconds"))
@@ -37,20 +43,18 @@ func AddConnection(w http.ResponseWriter, r *http.Request) {
 		ConfigID:       configID,
 	}
 
-	err := database.AddConnection(conn)
-	if err != nil {
+	if err := database.AddConnection(conn); err != nil {
 		log.Printf("Error agregando conexión: %v", err)
-		// Aquí podríamos devolver un error a HTMX
+		http.Error(w, "Error al agregar conexión", http.StatusInternalServerError)
+		return
 	}
 
-	// Redirigir (o devolver fragmento HTMX) a la lista actualizada
 	connections, _ := database.GetConnections()
-	templates.ExecuteTemplate(w, "connections.html", map[string]interface{}{
+	templates.ExecuteTemplate(w, "connection-list", map[string]interface{}{
 		"Connections": connections,
 	})
 }
 
-// DeleteConnection elimina una conexión.
 func DeleteConnection(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -60,9 +64,9 @@ func DeleteConnection(w http.ResponseWriter, r *http.Request) {
 
 	if err := database.DeleteConnection(id); err != nil {
 		log.Printf("Error eliminando conexión: %v", err)
-		// Manejar el error apropiadamente para HTMX
+		http.Error(w, "Error al eliminar conexión", http.StatusInternalServerError)
+		return
 	}
 
-	// Devolver una respuesta vacía, HTMX eliminará el elemento del DOM.
 	w.WriteHeader(http.StatusOK)
 }

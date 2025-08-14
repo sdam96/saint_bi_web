@@ -1,34 +1,25 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <title>Usuarios</title>
-    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-</head>
-<body>
-    <nav>
-        <a href="/dashboard">Dashboard</a> |
-        <a href="/connections">Conexiones</a> |
-        <a href="/users">Usuarios</a> |
-        <form action="/logout" method="post" style="display:inline;"><button type="submit">Salir</button></form>
-    </nav>
-    <hr>
+{{define "title"}}Gestionar Usuarios{{end}}
+
+{{define "users-content"}}
     <h1>Gestionar Usuarios</h1>
 
-    <div id="user-list">
-        <h2>Usuarios Existentes</h2>
-        <ul>
-            {{range .Users}}
-            <li>{{.Username}}</li>
-            {{end}}
-        </ul>
+    <div id="user-list-wrapper">
+        {{template "user-list" .}}
     </div>
     <hr>
     <h2>Agregar Nuevo Usuario</h2>
-    <form hx-post="/users" hx-target="#user-list" hx-swap="innerHTML">
+    <form hx-post="/users" hx-target="#user-list-wrapper" hx-swap="innerHTML" onsubmit="this.reset()">
         <div><label>Usuario: <input type="text" name="username" required></label></div>
         <div><label>Clave: <input type="password" name="password" required></label></div>
         <button type="submit">Crear Usuario</button>
     </form>
-</body>
-</html>
+{{end}}
+
+{{define "user-list"}}
+<h2>Usuarios Existentes</h2>
+<ul>
+    {{range .Users}}
+    <li>{{.Username}}</li>
+    {{end}}
+</ul>
+{{end}}
