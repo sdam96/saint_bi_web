@@ -1,6 +1,28 @@
 package models
 
-import "time"
+//Estructura generica para mostrar un valor y su cambio
+type ComparativeData struct {
+	Value            float64 `json:"value"`
+	PreviousValue    float64 `json:"previousValue"`
+	PercentageChange float64 `json:"percentageChange"`
+}
+
+// Estructura principal que se enviara al frontend
+// contiene los datos del periodo actual y los datos comparativos
+type ComparativeSummary struct {
+	CurrentPeriod  ManagementSummary `json:"currentPeriod"`
+	PreviousPeriod ManagementSummary `json:"previousPeriod"`
+
+	TotalNetSalesComparative ComparativeData `json:"totalNetSalesComparative"`
+	GrossProfitComparative   ComparativeData `json:"grossProfitComparative"`
+	AverageTicketComparative ComparativeData `json:"averageTicketComparative"`
+}
+
+// RankedItem es una estructura genérica para los rankings del dashboard.
+type RankedItem struct {
+	Name  string
+	Value float64
+}
 
 // ManagementSummary contiene todos los KPIs calculados para el dashboard gerencial.
 type ManagementSummary struct {
@@ -42,12 +64,3 @@ type ManagementSummary struct {
 	Top5ProductsByProfit []RankedItem
 	Top5SellersBySales   []RankedItem
 }
-
-// RankedItem es una estructura genérica para los rankings del dashboard.
-type RankedItem struct {
-	Name  string
-	Value float64
-}
-
-// Helper para el cálculo de fechas
-var thirtyDaysAgo = time.Now().AddDate(0, 0, -30)
