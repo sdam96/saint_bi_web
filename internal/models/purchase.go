@@ -63,9 +63,9 @@ type Purchase struct {
 	MtoNCredito *float64 `json:"mtoncredito"`
 	MtoNDebito  *float64 `json:"mtondebito"`
 	Descto1     *float64 `json:"descto1"`
-	MtoInt1     *float64 `json:"mto*int1"`
+	MtoInt1     *float64 `json:"mtoint1"`
 	Descto2     *float64 `json:"descto2"`
-	MtoInt2     *float64 `json:"mto*int2"`
+	MtoInt2     *float64 `json:"mtoint2"`
 	MtoFinanc   *float64 `json:"mtofinanc"`
 	DetalChq    *string  `json:"detalchq"`
 	TotalPrd    *float64 `json:"totalprd"`

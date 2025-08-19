@@ -18,8 +18,6 @@ import (
 	"saintnet.com/m/internal/handlers"
 )
 
-// Esta directiva incrusta el contenido del directorio 'frontend/dist' en la variable 'embeddedFiles'.
-//
 //go:embed all:frontend/dist
 var embeddedFiles embed.FS
 
@@ -41,33 +39,46 @@ func main() {
 	}
 
 	// --- 3. Configuración del Enrutador Principal ---
+	// http.NewServeMux() crea un nuevo enrutador de solicitudes (multiplexer).
 	mux := http.NewServeMux()
 
 	// --- Rutas de la API (Públicas) ---
-	// Estas rutas NO están protegidas por el middleware. Son accesibles para todos.
-	// La sintaxis "METHOD /path" es específica de Go 1.22+ y asegura que solo ese método HTTP sea aceptado.
+	// La sintaxis "METHOD /path" (de Go 1.22+) registra un handler para un método y ruta específicos.
 	mux.HandleFunc("POST /api/login", handlers.Login)
 	mux.HandleFunc("POST /api/logout", handlers.Logout)
 	mux.HandleFunc("POST /api/force-password-change", handlers.ForcePasswordChange)
 
 	// --- Rutas de la API (Protegidas) ---
-	// Para cada ruta protegida, envolvemos su manejador explícitamente con el middleware.
-	// Esto evita el error de que una ruta genérica intercepte una específica.
-	// 'http.HandlerFunc()' convierte una función como 'handlers.GetDashboardData' en un 'http.Handler'.
+	// Cada una de estas rutas se envuelve con nuestro 'AuthMiddleware'.
+	// 'http.HandlerFunc()' es un adaptador que nos permite usar una función ordinaria
+	// (como 'handlers.GetDashboardData') como un 'http.Handler'.
+
+	// Rutas del Dashboard
 	mux.Handle("GET /api/dashboard/data", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetDashboardData)))
 	mux.Handle("POST /api/dashboard/select-connection", handlers.AuthMiddleware(http.HandlerFunc(handlers.SelectConnection)))
 
+	// --- NUEVAS RUTAS PARA LA FUNCIONALIDAD DE DRILLDOWN ---
+	// Se registra la ruta para obtener listas de transacciones. Cualquier solicitud GET a /api/transactions
+	// pasará primero por AuthMiddleware y luego será manejada por GetTransactionsList.
+	mux.Handle("GET /api/transactions", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetTransactionsList)))
+
+	// Se registra la ruta para obtener el detalle de una transacción.
+	// Los segmentos {type} y {id} son comodines (wildcards) que capturan valores de la URL.
+	// Por ejemplo, en una solicitud a /api/transaction/invoice/123, el handler podrá
+	// acceder a "invoice" como 'type' y a "123" como 'id'.
+	mux.Handle("GET /api/transaction/{type}/{id}", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetTransactionDetail)))
+
+	// Rutas de Administración
 	mux.Handle("GET /api/connections", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetConnections)))
 	mux.Handle("POST /api/connections", handlers.AuthMiddleware(http.HandlerFunc(handlers.AddConnection)))
 	mux.Handle("DELETE /api/connections/{id}", handlers.AuthMiddleware(http.HandlerFunc(handlers.DeleteConnection)))
-
 	mux.Handle("GET /api/users", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetUsers)))
 	mux.Handle("POST /api/users", handlers.AuthMiddleware(http.HandlerFunc(handlers.AddUser)))
 
 	// --- Ruta para el Frontend (SPA) ---
-	// 'mux.Handle("/", ...)' actúa como una ruta "catch-all" (atrapa todo).
-	// Cualquier solicitud que NO coincida con una ruta de API más específica (como las de arriba)
-	// será manejada por el 'FrontendHandler', que sirve la aplicación de Vue.
+	// mux.Handle("/", ...) actúa como una ruta "catch-all" (atrapa todo).
+	// Cualquier solicitud que NO coincida con una ruta de API más específica será
+	// manejada por el 'FrontendHandler', que sirve la aplicación de Vue.
 	mux.Handle("/", handlers.FrontendHandler(distFS))
 
 	// --- 4. Inicio del Servidor ---

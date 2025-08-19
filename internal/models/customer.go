@@ -37,7 +37,7 @@ type Customer struct {
 	DiasCred   *int     `json:"diascred"`
 	EsToleran  *int     `json:"estoleran"`
 	DiasTole   *int     `json:"diastole"`
-	IntMora    *int     `json:"*intmora"`
+	IntMora    *int     `json:"intmora"`
 	Descto     *float64 `json:"descto"`
 	Saldo      *float64 `json:"saldo"`
 	PagosA     *float64 `json:"pagosa"`

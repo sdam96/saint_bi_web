@@ -23,7 +23,12 @@
 
     <Spinner v-if="store.isLoading" />
 
-    <SummaryDisplay v-if="store.summaryData && !store.isLoading" :summary="store.summaryData" />
+    <SummaryDisplay 
+      v-if="store.summaryData && !store.isLoading" 
+      :summary="store.summaryData"
+      :start-date="startDate"
+      :end-date="endDate"
+    />
     
     <p v-if="!store.selectedConnectionId && !store.isLoading" class="text-center mt-4">
       Seleccione una conexión para ver los datos.
@@ -38,14 +43,10 @@ import { useDashboardStore } from '../store/dashboard';
 import DashboardSelector from '../components/DashboardSelector.vue';
 import SummaryDisplay from '../components/SummaryDisplay.vue';
 import Spinner from '../components/Spinner.vue';
-// Importamos el nuevo componente
 import DateRangePicker from '../components/DateRangePicker.vue';
 
 const store = useDashboardStore();
 
-// --- Lógica para el manejo de Fechas ---
-
-// Función para formatear fechas a AAAA-MM-DD
 const formatDate = (date) => {
   const d = new Date(date);
   const year = d.getFullYear();
@@ -56,16 +57,13 @@ const formatDate = (date) => {
   return [year, month, day].join('-');
 }
 
-// Estado reactivo para las fechas, con valores por defecto
 const endDate = ref(formatDate(new Date()));
 const startDate = ref(formatDate(new Date(new Date().setDate(new Date().getDate() - 30))));
 
-// Cuando el componente se monta, cargamos las conexiones.
 onMounted(() => {
   store.fetchConnections();
 });
 
-// Cuando se selecciona una conexión, se cargan los datos con las fechas actuales.
 const handleConnectionSelect = (connectionId) => {
   store.selectConnection(connectionId, { 
     startDate: startDate.value, 
@@ -73,8 +71,6 @@ const handleConnectionSelect = (connectionId) => {
   });
 };
 
-// Observador (watch): Cada vez que 'startDate' o 'endDate' cambian,
-// se vuelven a pedir los datos del dashboard.
 watch([startDate, endDate], () => {
   if (store.selectedConnectionId) {
     store.fetchDashboardData({ 
