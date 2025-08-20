@@ -92,6 +92,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useDrilldownStore } from '../store/drilldown';
 // Importamos el componente Spinner para mostrar una indicación de carga.
 import Spinner from '../components/Spinner.vue';
+import { formatCurrency } from '../utils/formatters';
 
 const store = useDrilldownStore();
 const route = useRoute();
@@ -112,12 +113,6 @@ onMounted(() => {
 
 // --- Funciones auxiliares de formato ---
 
-// Formatea un número como moneda local.
-const formatCurrency = (value) => {
-  if (typeof value !== 'number') return '0,00';
-  return new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'VES' }).format(value);
-};
-
 // Formatea un string de fecha (ej. "2023-10-26 11:23:09") a un formato local legible.
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';
@@ -128,12 +123,28 @@ const formatDate = (dateString) => {
 
 // --- Navegación al siguiente nivel ---
 const viewEntityDetail = (type, id) => {
-  // Esta función es el punto de partida para el siguiente nivel de drilldown.
-  // Por ahora, solo muestra una alerta como marcador de posición.
-  alert(`Navegando al detalle de ${type} con ID: ${id}`);
-  // Ejemplo de cómo sería la navegación real:
-  // router.push({ name: 'ProductDetail', params: { id: id } });
+  if(!id) return;
+
+  let routeName = '';
+  switch (type) {
+    case 'customer':
+      routeName = 'CustomerDetail';
+      break;
+
+    case 'seller':
+      routeName = 'SellerDetail';
+      break;
+    
+    case 'product':
+      routeName = 'ProductDetail';
+      break;
+    default:
+      break;
+  }
+
+  router.push({name: routeName, params: {id: id} });
 };
+
 </script>
 
 <style scoped>

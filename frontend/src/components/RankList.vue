@@ -12,11 +12,7 @@
 
 <script setup>
 import DashboardCard from './DashboardCard.vue';
-
-// Helper para formatear los números como moneda
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'VES' }).format(value);
-};
+import { formatCurrency } from '../utils/formatters'
 
 defineProps({
   title: String,

@@ -68,6 +68,13 @@ func main() {
 	// acceder a "invoice" como 'type' y a "123" como 'id'.
 	mux.Handle("GET /api/transaction/{type}/{id}", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetTransactionDetail)))
 
+	// Ruta para obtener detalles de entidades genericas
+	// Capturara solamente solicitudes como /api/entity/customer/123
+	mux.Handle("GET /api/entity/{type}/{id}", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetEntityDetail)))
+
+	mux.Handle("GET /api/settings", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetSettings)))
+	mux.Handle("POST /api/settings", handlers.AuthMiddleware(http.HandlerFunc(handlers.UpdateSettings)))
+
 	// Rutas de Administración
 	mux.Handle("GET /api/connections", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetConnections)))
 	mux.Handle("POST /api/connections", handlers.AuthMiddleware(http.HandlerFunc(handlers.AddConnection)))

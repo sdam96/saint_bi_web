@@ -64,7 +64,9 @@ func InitDB() (*sql.DB, error) {
 			api_user TEXT NOT NULL,
 			api_password TEXT NOT NULL,
 			refresh_seconds INTEGER NOT NULL,
-			config_id INTEGER NOT NULL
+			config_id INTEGER NOT NULL,
+			currency_iso TEXT NOT NULL DEFAULT '',
+			locale TEXT NOT NULL DEFAULT 'en-US'
 		);
 	`
 	// 'DB.Exec' ejecuta una consulta SQL que no devuelve filas, como CREATE, INSERT, UPDATE o DELETE.
@@ -181,7 +183,7 @@ func AddConnection(conn models.Connection) error {
 
 // GetConnections devuelve todas las conexiones guardadas.
 func GetConnections() ([]models.Connection, error) {
-	rows, err := DB.Query("SELECT id, alias, api_url, api_user, api_password, refresh_seconds, config_id FROM connections ORDER BY alias")
+	rows, err := DB.Query("SELECT * FROM connections ORDER BY alias")
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +204,7 @@ func GetConnections() ([]models.Connection, error) {
 // GetConnectionByID busca una conexión por su ID.
 func GetConnectionByID(id int) (*models.Connection, error) {
 	conn := &models.Connection{}
-	err := DB.QueryRow("SELECT id, alias, api_url, api_user, api_password, refresh_seconds, config_id FROM connections WHERE id = ?", id).Scan(
+	err := DB.QueryRow("SELECT * FROM connections WHERE id = ?", id).Scan(
 		&conn.ID, &conn.Alias, &conn.ApiURL, &conn.ApiUser, &conn.ApiPassword, &conn.RefreshSeconds, &conn.ConfigID)
 	if err != nil {
 		return nil, err
@@ -213,5 +215,10 @@ func GetConnectionByID(id int) (*models.Connection, error) {
 // DeleteConnection elimina una conexión por su ID.
 func DeleteConnection(id int) error {
 	_, err := DB.Exec("DELETE FROM connections WHERE id = ?", id)
+	return err
+}
+
+func UpdateConnectionSettings(id int, currencyISO, localeFormat string) error {
+	_, err := DB.Exec("UPDATE connections SET currency_iso = ?, locale_format = ? WHERE id = ?", currencyISO, localeFormat, id)
 	return err
 }

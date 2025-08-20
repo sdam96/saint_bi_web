@@ -89,3 +89,27 @@ func GetTransactionDetail(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, http.StatusOK, detail)
 }
+
+// Handler para rutas como GET /api/entity/customer/123.
+// Su proposito es obtener y devolver los datos completos de una unica entidad
+func GetEntityDetail(w http.ResponseWriter, r *http.Request) {
+	// Se obtiene el cliente API del contexto ya autenticado por el middleware
+	client := getClientFromContext(r)
+	if client == nil {
+		respondWithError(w, http.StatusUnauthorized, "API no disponible")
+		return
+	}
+
+	entityType := r.PathValue("type")
+	entityID := r.PathValue("id")
+
+	detail, err := services.GetEntityDetail(client, entityType, entityID)
+	if err != nil {
+		log.Printf("Error obteniendo detalle de la entidad: '%v'", err)
+		respondWithError(w, http.StatusInternalServerError, "Error al obtener detalle de la entidad: "+err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, detail)
+
+}

@@ -8,11 +8,13 @@ type User struct {
 }
 
 type Connection struct {
-	ID             int
-	Alias          string
-	ApiURL         string
-	ApiUser        string
-	ApiPassword    string
-	RefreshSeconds int
-	ConfigID       int
+	ID             int    `json:"ID"`
+	Alias          string `json:"Alias"`
+	ApiURL         string `json:"ApiURL"`
+	ApiUser        string `json:"ApiUser"`
+	ApiPassword    string `json:"ApiPassword"`
+	RefreshSeconds int    `json:"RefreshSeconds"`
+	ConfigID       int    `json:"ConfigID"`
+	CurrencyISO    string `json:"CurrencyISO"`
+	LocaleFormat   string `json:"LocaleFormat"`
 }

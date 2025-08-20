@@ -237,3 +237,49 @@ func GetTransactionDetail(client *api.SaintClient, docType, docID string) (*Full
 
 	return nil, fmt.Errorf("obtener detalle para el tipo '%s' aún no está implementado", docType)
 }
+
+// Busca los detalles de una entidad especifica (cliente, producto, vendedor).
+// Recibe el codigo de entidad y su ID y devuelve el objeto correspondiente.
+func GetEntityDetail(client *api.SaintClient, entityType, entityID string) (interface{}, error) {
+	switch strings.ToLower(entityType) {
+	case "customer":
+		allCustomers, err := client.GetCustomers()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, c := range allCustomers {
+			if c.CodClie != nil && *c.CodClie == entityID {
+				return c, nil
+			}
+		}
+		return nil, fmt.Errorf("cliente con ID '%s' no fue encontrado", entityID)
+
+	case "seller":
+		allSellers, err := client.GetSellers()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, s := range allSellers {
+			if s.CodVend != nil && *s.CodVend == entityID {
+				return s, nil
+			}
+		}
+		return nil, fmt.Errorf("vendedor con ID '%s' no fue encontrado", entityID)
+
+	case "product":
+		allProducts, err := client.GetProducts()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, p := range allProducts {
+			if p.CodProd != nil && *p.CodProd == entityID {
+				return p, nil
+			}
+		}
+		return nil, fmt.Errorf("producto con ID '%s' no fue encontrado", entityID)
+	}
+	return nil, fmt.Errorf("tipo de entidad '%s' no es valido", entityType)
+}

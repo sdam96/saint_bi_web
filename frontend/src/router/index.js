@@ -2,15 +2,24 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 
-// 1. Importamos las vistas existentes y las NUEVAS vistas que usará el drilldown.
 import Login from '../views/Login.vue';
 import Dashboard from '../views/Dashboard.vue';
 import Connections from '../views/Connections.vue';
 import Users from '../views/Users.vue';
-import TransactionList from '../views/TransactionList.vue'; // <-- Asegúrate de que esta línea esté presente
-import InvoiceDetail from '../views/InvoiceDetail.vue';   // <-- Y esta también
+import TransactionList from '../views/TransactionList.vue';
+import InvoiceDetail from '../views/InvoiceDetail.vue';
+import CustomerDetail from '../views/CustomerDetail.vue';
+import ProductDetail from '../views/ProductDetail.vue';
+import SellerDetail from '../views/SellerDetail.vue';
+import Settings from '../views/Settings.vue';
 
 const routes = [
+    {
+        path: '/settings',
+        name: 'Settings',
+        component: Settings,
+        meta: {requiresAuth: true}
+    },
     {
         path: '/login',
         name: 'Login',
@@ -35,8 +44,6 @@ const routes = [
         component: Users,
         meta: { requiresAuth: true }
     },
-
-    // --- RUTAS PARA DRILLDOWN (Añadidas) ---
     {
         // Esta es una ruta dinámica. ':type' será un parámetro en la URL
         // que nos dirá qué tipo de transacciones mostrar (ej: /transactions/invoices).
@@ -57,8 +64,27 @@ const routes = [
         meta: { requiresAuth: true },
         props: true
     },
-    // --- FIN DE NUEVAS RUTAS ---
-
+    {
+        path: '/customer/:id',
+        name: 'CustomerDetail',
+        component: CustomerDetail,
+        meta: {requiresAuth: true},
+        props: true
+    },
+    {
+        path: '/seller/:id',
+        name: 'SellerDetail',
+        component: SellerDetail,
+        meta: {requiresAuth: true},
+        props: true
+    },
+    {
+        path: '/product/:id',
+        name: 'ProductDetail',
+        component: ProductDetail,
+        meta: {requiresAuth: true},
+        props: true
+    },
     {
         path: '/',
         redirect: () => {

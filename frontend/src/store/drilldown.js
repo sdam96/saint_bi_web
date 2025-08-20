@@ -11,6 +11,7 @@ export const useDrilldownStore = defineStore('drilldown', {
         transactions: [],
         // Almacenará el detalle completo de una sola transacción.
         transactionDetail: null,
+        entityDetail: null,
         // Guardaremos el título para la vista, ej: "Detalle de Ventas".
         currentTitle: '',
         // Banderas para manejar el estado de carga y los errores.
@@ -79,5 +80,21 @@ export const useDrilldownStore = defineStore('drilldown', {
                 this.isLoading = false;
             }
         },
+
+        async fetchEntityDetail(entityType, entityId){
+            this.isLoading = true;
+            this.error = null;
+            this.entityDetail = null;
+
+            try {
+                const response = await axios.get(`/api/entity/${entityType}/${entityId}`);
+                this.entityDetail = response.data;
+            } catch (err) {
+                this.error = `Error al cargar el detalle para ${entityType} con ID ${entityId}`;
+                console.log(err)
+            } finally {
+                this.isLoading = false;
+            }
+        }
     },
 });

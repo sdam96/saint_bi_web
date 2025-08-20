@@ -45,6 +45,7 @@ import { onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useDrilldownStore } from '../store/drilldown';
 import Spinner from '../components/Spinner.vue';
+import { formatCurrency } from '../utils/formatters';
 
 const store = useDrilldownStore();
 const route = useRoute();
@@ -93,12 +94,6 @@ const formattedTransactions = computed(() => {
     };
   });
 });
-
-// --- Funciones auxiliares ---
-const formatCurrency = (value) => {
-  if (typeof value !== 'number') return 'Bs. 0,00';
-  return new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'VES' }).format(value);
-};
 
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A';

@@ -25,6 +25,9 @@
           <li class="nav-item">
             <router-link to="/users" class="nav-link">Usuarios</router-link>
           </li>
+          <li class="nav-item">
+            <router-link to="/settings" class="nav-link">Configuración</router-link>
+          </li>
         </ul>
         <div class="d-flex">
           <button @click="handleLogout" class="btn btn-outline-light">Salir</button>
