@@ -94,12 +94,10 @@ func main() {
 
 	// --- 4. Inicio del Servidor ---
 	port := "8080"
-	log.Printf("=====================================")
 	log.Printf("SAINT B.I.")
 	log.Printf("Version: 1.0.0")
-	log.Printf("=====================================")
-	log.Printf("[INFO] Estado del servidor: En linea")
-	log.Printf("[INFO] Conexión a base de datos: Exitosa")
+	log.Printf("Estado del servidor: En linea")
+	log.Printf("Conexión a base de datos: Exitosa")
 	log.Printf("Servidor iniciado en puerto: %s", port)
 
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
