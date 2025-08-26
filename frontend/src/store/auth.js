@@ -1,45 +1,48 @@
-// frontend/src/store/auth.js
+// src/store/auth.js
 import { defineStore } from 'pinia';
-import axios from 'axios'; // Usaremos axios para las llamadas a la API
+import axios from 'axios';
+import router from '../router'; // <-- Importar el enrutador
 
 export const useAuthStore = defineStore('auth', {
     state: () => ({
-        // Inicializamos el estado desde localStorage para mantener la sesión si el usuario recarga la página.
-        user: JSON.parse(localStorage.getItem('user')),
+        isAuthenticated: localStorage.getItem('isAuthenticated') === 'true',
+        error: null,
     }),
-
     getters: {
-        // Un getter para saber fácilmente si el usuario está autenticado.
-        isAuthenticated: (state) => !!state.user,
-        // Getter para obtener los datos del usuario.
-        currentUser: (state) => state.user,
+        isUserAuthenticated: (state) => state.isAuthenticated,
     },
-
     actions: {
-        // Acción para manejar el inicio de sesión.
         async login(username, password) {
             try {
-                // Hacemos la llamada a nuestro endpoint de la API de Go.
-                const response = await axios.post('/api/login', {
-                    username,
-                    password,
-                });
-
-                // Si la llamada es exitosa, guardamos los datos del usuario.
-                this.user = response.data;
-                // Guardamos en localStorage para persistir la sesión.
-                localStorage.setItem('user', JSON.stringify(response.data));
-
-                return true; // Indicamos que el login fue exitoso
-            } catch (error) {
-                console.error('Error en el inicio de sesión:', error);
-                // Limpiamos cualquier dato de usuario que pudiera haber.
-                this.user = null;
-                localStorage.removeItem('user');
-                return false; // Indicamos que el login falló
+                const response = await axios.post('/api/login', { username, password });
+                if (response.status === 200) {
+                    // Se actualiza el estado correctamente.
+                    this.isAuthenticated = true;
+                    localStorage.setItem('isAuthenticated', 'true');
+                    this.error = null;
+                    
+                    // Se fuerza la redirección al dashboard.
+                    await router.push('/dashboard');
+                    return true;
+                }
+            } catch (err) {
+                this.error = 'Credenciales inválidas o error del servidor.';
+                this.isAuthenticated = false;
+                localStorage.removeItem('isAuthenticated');
+                return false;
             }
         },
-
+        async logout() {
+            try {
+                await axios.post('/api/logout');
+            } catch (error) {
+                console.error("Error durante el logout en el servidor:", error);
+            } finally {
+                this.isAuthenticated = false;
+                localStorage.removeItem('isAuthenticated');
+                await router.push('/login');
+            }
+        },
         async extendSession() {
             try {
                 await axios.post('/api/session/extend');
@@ -47,25 +50,9 @@ export const useAuthStore = defineStore('auth', {
                 return true;
             } catch (error) {
                 console.error('Fallo al extender la sesión:', error);
+                // Si falla la extensión, cerramos la sesión para evitar inconsistencias.
+                this.logout();
                 return false;
-            }
-        },
-
-        // Acción para manejar el cierre de sesión.
-        async logout() {
-            try {
-                // Llama al endpoint de logout de la API.
-                await axios.post('/api/logout');
-            } catch (error) {
-                console.error('Error durante el logout en el servidor, cerrando sesión localmente de todas formas.', error);
-            } finally {
-                // Se limpia el estado local sin importar el resultado de la API.
-                this.user = null;
-                localStorage.removeItem('user');
-                // Redirigimos al usuario a la página de login.
-                // Importamos el router aquí para evitar dependencias circulares.
-                const router = (await import('../router')).default;
-                router.push('/login');
             }
         },
     },

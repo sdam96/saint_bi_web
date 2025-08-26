@@ -1,13 +1,13 @@
 <template>
   <div>
-    <div class="row row-cols-1 row-cols-md-3 g-4 mt-3 mb-4">
-      <div class="col">
+    <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+      <div class="col animated-fade-in">
         <KpiCard title="Ventas Netas" :kpi="summary.totalNetSalesComparative" />
       </div>
-      <div class="col">
+      <div class="col animated-fade-in" style="animation-delay: 100ms;">
         <KpiCard title="Utilidad Bruta" :kpi="summary.grossProfitComparative" />
       </div>
-      <div class="col">
+      <div class="col animated-fade-in" style="animation-delay: 200ms;">
         <KpiCard title="Ticket Promedio" :kpi="summary.averageTicketComparative" />
       </div>
     </div>
@@ -15,12 +15,23 @@
     <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mt-1">
 
       <DashboardCard title="Ventas y Utilidad (Período Actual)">
-        <li class="list-group-item d-flex justify-content-between"><span>Total Ventas Netas:</span> <strong>{{ formatCurrency(summary.currentPeriod.TotalNetSales) }}</strong></li>
-        <li class="list-group-item d-flex justify-content-between drilldown-row" @click="navigateToDrilldown('invoices-cash', 'Ventas de Contado del Período')">
-          <span>Ventas de Contado:</span> <strong>{{ formatCurrency(summary.currentPeriod.TotalNetSalesCash) }}</strong>
+        <li class="list-group-item d-flex justify-content-between">
+          <span>Total Ventas Netas:</span> 
+          <strong>{{ formatCurrency(summary.currentPeriod.TotalNetSales) }}</strong>
         </li>
-        <li class="list-group-item d-flex justify-content-between drilldown-row" @click="navigateToDrilldown('invoices-credit', 'Ventas a Crédito del Período')">
-          <span>Ventas a Crédito:</span> <strong>{{ formatCurrency(summary.currentPeriod.TotalNetSalesCredit) }}</strong>
+        <li 
+          class="list-group-item d-flex justify-content-between" 
+          :class="{ 'drilldown-row': !isConsolidatedView }"
+          @click="navigateToDrilldown('invoices-cash', 'Ventas de Contado del Período')">
+          <span>Ventas de Contado:</span> 
+          <strong>{{ formatCurrency(summary.currentPeriod.TotalNetSalesCash) }}</strong>
+        </li>
+        <li 
+          class="list-group-item d-flex justify-content-between" 
+          :class="{ 'drilldown-row': !isConsolidatedView }"
+          @click="navigateToDrilldown('invoices-credit', 'Ventas a Crédito del Período')">
+          <span>Ventas a Crédito:</span> 
+          <strong>{{ formatCurrency(summary.currentPeriod.TotalNetSalesCredit) }}</strong>
         </li>
         <li class="list-group-item d-flex justify-content-between"><span>Costo de Ventas:</span> <strong>{{ formatCurrency(summary.currentPeriod.CostOfGoodsSold) }}</strong></li>
         <li class="list-group-item d-flex justify-content-between"><span>Utilidad Bruta:</span> <strong>{{ formatCurrency(summary.currentPeriod.GrossProfit) }}</strong></li>
@@ -28,7 +39,7 @@
         <li class="list-group-item d-flex justify-content-between"><span>Ticket Promedio:</span> <strong>{{ formatCurrency(summary.currentPeriod.AverageTicket) }}</strong></li>
       </DashboardCard>
 
-      <div class="col drilldown-card" @click="navigateToDrilldown('receivables', 'Cuentas por Cobrar del Período')">
+      <div class="col" :class="{ 'drilldown-card': !isConsolidatedView }" @click="navigateToDrilldown('receivables', 'Cuentas por Cobrar del Período')">
         <DashboardCard title="Cuentas por Cobrar">
           <li class="list-group-item d-flex justify-content-between"><span>Total por Cobrar:</span> <strong>{{ formatCurrency(summary.currentPeriod.TotalReceivables) }}</strong></li>
           <li class="list-group-item d-flex justify-content-between"><span>Monto Vencido:</span> <strong>{{ formatCurrency(summary.currentPeriod.OverdueReceivables) }}</strong></li>
@@ -39,7 +50,7 @@
         </DashboardCard>
       </div>
 
-      <div class="col drilldown-card" @click="navigateToDrilldown('payables', 'Cuentas por Pagar del Período')">
+      <div class="col" :class="{ 'drilldown-card': !isConsolidatedView }" @click="navigateToDrilldown('payables', 'Cuentas por Pagar del Período')">
         <DashboardCard title="Cuentas por Pagar">
            <li class="list-group-item d-flex justify-content-between"><span>Total por Pagar:</span> <strong>{{ formatCurrency(summary.currentPeriod.TotalPayables) }}</strong></li>
           <li class="list-group-item d-flex justify-content-between"><span>Monto Vencido:</span> <strong>{{ formatCurrency(summary.currentPeriod.OverduePayables) }}</strong></li>
@@ -61,19 +72,16 @@
         <li class="list-group-item d-flex justify-content-between"><span>IVA Retenido a Proveedores:</span> <strong>{{ formatCurrency(summary.currentPeriod.PurchasesIVAWithheld) }}</strong></li>
       </DashboardCard>
 
-      <RankList title="Top 5 Productos por Venta" :items="summary.currentPeriod.Top5ProductsBySales" />
-      <RankList title="Top 5 Productos por Utilidad" :items="summary.currentPeriod.Top5ProductsByProfit" />
-      <RankList title="Top 5 Clientes por Venta" :items="summary.currentPeriod.Top5ClientsBySales" />
-      <RankList title="Top 5 Vendedores por Venta" :items="summary.currentPeriod.Top5SellersBySales" />
-
-    </div>
+      </div>
   </div>
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useDashboardStore } from '../store/dashboard';
 import DashboardCard from './DashboardCard.vue';
-import RankList from './RankList.vue';
+import RankList from './RankList.vue'; // <-- Esta importación ya no es necesaria aquí, pero no causa daño.
 import KpiCard from './KpiCard.vue';
 import { formatCurrency } from '../utils/formatters';
 
@@ -84,8 +92,15 @@ const props = defineProps({
 });
 
 const router = useRouter();
+const dashboardStore = useDashboardStore();
+
+const isConsolidatedView = computed(() => dashboardStore.selectedConnectionId === 0);
 
 const navigateToDrilldown = (docType, title) => {
+  if (isConsolidatedView.value) {
+    return;
+  }
+  
   router.push({
     name: 'TransactionList',
     params: { type: docType },
@@ -105,13 +120,13 @@ const navigateToDrilldown = (docType, title) => {
 }
 .drilldown-card:hover {
   transform: translateY(-5px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(37, 54, 119, 0.3);
 }
 .drilldown-row {
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
 .drilldown-row:hover {
-  background-color: #e9ecef;
+  background-color: var(--bs-tertiary-bg);
 }
 </style>

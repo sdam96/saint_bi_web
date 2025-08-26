@@ -1,29 +1,26 @@
 <template>
-  <div class="row justify-content-center mt-5">
-    <div class="col-md-4">
-      <div class="card">
-        <div class="card-body">
-          <h1 class="card-title text-center mb-4">Iniciar Sesión</h1>
-          <form @submit.prevent="handleLogin">
-            <div class="mb-3">
-              <label for="username" class="form-label">Usuario:</label>
-              <input type="text" class="form-control" id="username" v-model="username" placeholder="admin" required />
-            </div>
-
-            <div class="mb-3">
-              <label for="password" class="form-label">Clave:</label>
-              <input type="password" class="form-control" id="password" v-model="password" placeholder="*******" required />
-            </div>
-
-            <div v-if="errorMessage" class="alert alert-danger">{{ errorMessage }}</div>
-
-            <div class="d-grid">
-              <button type="submit" class="btn btn-primary" :disabled="isLoading">
-                {{ isLoading ? 'Entrando...' : 'Entrar' }}
-              </button>
-            </div>
-          </form>
+  <div class="login-container">
+    <div class="card login-card animated-fade-in">
+      <div class="card-body p-4 p-md-5">
+        <div class="text-center mb-4">
+          <img src="/src/assets/vue.svg" alt="Logo" width="72" height="57" class="mb-3">
+          <h1 class="h3 fw-normal">Bienvenido a SAINT BI</h1>
+          <p class="text-muted">Inicia sesión para continuar</p>
         </div>
+        <form @submit.prevent="handleLogin">
+          <div v-if="error" class="alert alert-danger">{{ error }}</div>
+          <div class="form-floating mb-3">
+            <input type="text" class="form-control" id="username" v-model="username" placeholder="Usuario" required>
+            <label for="username">Usuario</label>
+          </div>
+          <div class="form-floating mb-3">
+            <input type="password" class="form-control" id="password" v-model="password" placeholder="Clave" required>
+            <label for="password">Clave</label>
+          </div>
+          <button class="w-100 btn btn-lg btn-primary" type="submit" :disabled="isLoading">
+            {{ isLoading ? 'Ingresando...' : 'Ingresar' }}
+          </button>
+        </form>
       </div>
     </div>
   </div>
@@ -31,29 +28,34 @@
 
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 
 const username = ref('');
 const password = ref('');
-const errorMessage = ref(null);
+const error = ref(null);
 const isLoading = ref(false);
-
-const router = useRouter();
 const authStore = useAuthStore();
 
 const handleLogin = async () => {
+  error.value = null;
   isLoading.value = true;
-  errorMessage.value = null;
-
   const success = await authStore.login(username.value, password.value);
-
-  isLoading.value = false;
-
-  if (success) {
-    router.push('/dashboard');
-  } else {
-    errorMessage.value = 'Credenciales inválidas. Por favor, intente de nuevo.';
+  if (!success) {
+    error.value = authStore.error || 'Credenciales inválidas.';
   }
+  isLoading.value = false;
 };
 </script>
+
+<style scoped>
+.login-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+}
+.login-card {
+  width: 100%;
+  max-width: 420px;
+}
+</style>

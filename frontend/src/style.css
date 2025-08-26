@@ -1,79 +1,108 @@
+/* src/style.css */
+
+/* 1. Paleta de Colores y Tema Oscuro Corporativo */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  --saint-blue: #253677;
+  --saint-orange: #ee711c;
+  --saint-cyan: #10b8ba;
+  --saint-green: #6abc47;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  --bs-primary: var(--saint-blue);
+  --bs-body-color: #e9ecef;
+  --bs-body-bg: #0d1117;      /* Fondo oscuro (inspirado en GitHub Dark) */
+  --bs-secondary-bg: #161b22;
+  --bs-tertiary-bg: #21262d;
+  --bs-border-color: #30363d;
+}
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
+/* 2. Estilos Globales y Tipografía */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+/* 3. Animaciones para una Experiencia Dinámica */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(1rem); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+.animated-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
+/* 4. Estilo de Componentes con Identidad de Marca */
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
+/* Tarjetas (Cards) */
 .card {
-  padding: 2em;
+  background-color: var(--bs-secondary-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 }
 
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.card-header {
+  background-color: var(--bs-tertiary-bg) !important;
+  color: #fff !important;
+  font-weight: 600;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+/* Botones */
+.btn {
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: var(--saint-blue);
+  border-color: var(--saint-blue);
+  box-shadow: 0 0 15px -5px var(--saint-blue);
+}
+
+.btn-primary:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 25px -5px var(--saint-blue);
+}
+
+/* Formularios */
+.form-control, .form-select {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 6px;
+}
+
+.form-control:focus, .form-select:focus {
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border-color: var(--saint-blue);
+  box-shadow: 0 0 0 0.25rem rgba(37, 84, 119, 0.5);
+}
+
+.form-floating > label {
+  color: #8b949e;
+}
+
+/* Tablas */
+.table {
+  --bs-table-bg: var(--bs-secondary-bg);
+  --bs-table-striped-bg: var(--bs-tertiary-bg);
+  --bs-table-hover-bg: #2a3038;
+  --bs-table-color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+
+.table > :not(caption) > * > * {
+  padding: 0.9rem 0.75rem; /* Más espaciado */
 }
