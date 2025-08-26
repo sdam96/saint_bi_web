@@ -26,7 +26,7 @@ func main() {
 	// --- 1. Inicialización de Dependencias ---
 	db, err := database.InitDB()
 	if err != nil {
-		log.Fatalf("Error al inicializar la base de datos: %v", err)
+		log.Fatalf("[FATAL] Error al inicializar la base de datos: %v", err)
 	}
 	defer db.Close()
 
@@ -35,7 +35,7 @@ func main() {
 	// --- 2. Preparación del Frontend Embebido ---
 	distFS, err := fs.Sub(embeddedFiles, "frontend/dist")
 	if err != nil {
-		log.Fatalf("Error: No se pudo encontrar el directorio 'frontend/dist'. Asegúrate de haber compilado el frontend con 'npm run build'. %v", err)
+		log.Fatalf("[FATAL] Error: No se pudo encontrar el directorio 'frontend/dist'. Asegúrate de haber compilado el frontend con 'npm run build'. %v", err)
 	}
 
 	// --- 3. Configuración del Enrutador Principal ---
@@ -93,8 +93,16 @@ func main() {
 	mux.Handle("/", handlers.FrontendHandler(distFS))
 
 	// --- 4. Inicio del Servidor ---
-	log.Println("Servidor Go listo en http://localhost:8080")
-	if err := http.ListenAndServe(":8080", mux); err != nil {
-		log.Fatalf("Error al iniciar el servidor: %v", err)
+	port := "8080"
+	log.Printf("=====================================")
+	log.Printf("SAINT B.I.")
+	log.Printf("Version: 1.0.0")
+	log.Printf("=====================================")
+	log.Printf("[INFO] Estado del servidor: En linea")
+	log.Printf("[INFO] Conexión a base de datos: Exitosa")
+	log.Printf("Servidor iniciado en puerto: %s", port)
+
+	if err := http.ListenAndServe(":"+port, mux); err != nil {
+		log.Fatalf("[FATAL] Error al iniciar el servidor: %v", err)
 	}
 }
