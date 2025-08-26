@@ -12,11 +12,10 @@
     />
 
     <DateRangePicker
-      v-if="store.selectedConnectionId"
+      v-if="store.selectedConnectionId !== null && store.selectedConnectionId !== undefined"
       v-model:start-date="startDate"
       v-model:end-date="endDate"
     />
-
     <div v-if="store.error" class="alert alert-danger mt-4 text-center">
       {{ store.error }}
     </div>
@@ -30,7 +29,7 @@
       :end-date="endDate"
     />
     
-    <p v-if="!store.selectedConnectionId && !store.isLoading" class="text-center mt-4">
+    <p v-if="!store.selectedConnectionId && store.connections.length > 1" class="text-center mt-4">
       Seleccione una conexión para ver los datos.
     </p>
 
@@ -61,7 +60,9 @@ const endDate = ref(formatDate(new Date()));
 const startDate = ref(formatDate(new Date(new Date().setDate(new Date().getDate() - 30))));
 
 onMounted(() => {
-  store.fetchConnections();
+  if (store.connections.length === 0) {
+    store.fetchConnections();
+  }
 });
 
 const handleConnectionSelect = (connectionId) => {
@@ -72,7 +73,7 @@ const handleConnectionSelect = (connectionId) => {
 };
 
 watch([startDate, endDate], () => {
-  if (store.selectedConnectionId) {
+  if (store.selectedConnectionId !== null && store.selectedConnectionId !== undefined) {
     store.fetchDashboardData({ 
       startDate: startDate.value, 
       endDate: endDate.value 

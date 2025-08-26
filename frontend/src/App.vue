@@ -4,20 +4,34 @@
     <main class="container mt-4">
       <router-view />
     </main>
+
+    <SessionTimeoutModal
+      v-if="authStore.isAuthenticated"
+      :countdown="countdown"
+      @extend="handleExtend"
+      @logout="logout"
+    />
   </div>
 </template>
 
 <script setup>
 import { useAuthStore } from './store/auth';
 import Navbar from './components/Navbar.vue';
+// --- AÑADIR ESTAS IMPORTACIONES ---
+import SessionTimeoutModal from './components/SessionTimeoutModal.vue';
+import { useSessionManager } from './composables/useSessionManager';
+// --- FIN DE IMPORTACIONES ---
 
-// Obtenemos una instancia de nuestro store de autenticación
 const authStore = useAuthStore();
+
+// Inicializamos nuestro gestor de sesión.
+// Esto nos da acceso a las variables y funciones que expusimos (countdown, handleExtend, etc.).
+const { countdown, handleExtend, logout } = useSessionManager();
+// --- FIN ---
 </script>
 
 <style>
-/* Puedes añadir estilos globales aquí si lo necesitas */
 body {
-  background-color: #f8f9fa; /* Un color de fondo suave */
+  background-color: #f8f9fa;
 }
 </style>

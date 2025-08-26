@@ -54,7 +54,7 @@ type AccReceivable struct {
 	SaldoOrg   *float64 `json:"saldoorg"`
 	SaldoAct   *float64 `json:"saldoact"`
 	EsLibroI   *int     `json:"eslibroi"`
-	BaseImpo   *int     `json:"baseimpo"`
+	BaseImpo   *float64 `json:"baseimpo"`
 	TExento    *float64 `json:"texento"`
 	CancelI    *float64 `json:"canceli"`
 	CancelA    *float64 `json:"cancela"`

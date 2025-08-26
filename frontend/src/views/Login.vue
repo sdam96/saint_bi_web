@@ -34,7 +34,6 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../store/auth';
 
-// 'ref' se usa para crear variables reactivas
 const username = ref('');
 const password = ref('');
 const errorMessage = ref(null);
@@ -52,8 +51,6 @@ const handleLogin = async () => {
   isLoading.value = false;
 
   if (success) {
-    // Si el login es exitoso, el 'navigation guard' del router
-    // nos redirigirá automáticamente al dashboard.
     router.push('/dashboard');
   } else {
     errorMessage.value = 'Credenciales inválidas. Por favor, intente de nuevo.';

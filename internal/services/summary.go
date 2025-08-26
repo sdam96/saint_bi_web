@@ -2,6 +2,7 @@
 package services
 
 import (
+	"fmt"
 	"log"
 	"sort"
 	"sync"
@@ -11,7 +12,106 @@ import (
 	"saintnet.com/m/internal/models"
 )
 
-// GetComparativeSummary es el nuevo orquestador principal del servicio.
+// NUEVA FUNCIÓN: GetConsolidatedSummary
+// Orquesta el proceso de consolidación para múltiples conexiones.
+func GetConsolidatedSummary(connections []models.Connection, currentStart, currentEnd, prevStart, prevEnd time.Time) (*models.ComparativeSummary, error) {
+	// 1. Crear y autenticar todos los clientes de API en paralelo.
+	clients := make([]*api.SaintClient, 0, len(connections))
+	var clientsMutex sync.Mutex
+	var wgClients sync.WaitGroup
+	errs := make(chan error, len(connections))
+
+	for _, conn := range connections {
+		wgClients.Add(1)
+		go func(c models.Connection) {
+			defer wgClients.Done()
+			client := api.NewSaintClient(c.ApiURL)
+			// Las credenciales de la API externa (apiKey, apiID) podrían estar hardcodeadas o venir de la configuración.
+			if err := client.Login(c.ApiUser, c.ApiPassword, "B5D31933-C996-476C-B116-EF212A41479A", "1093"); err != nil {
+				errs <- fmt.Errorf("error al iniciar sesión en '%s': %w", c.Alias, err)
+				return
+			}
+			clientsMutex.Lock()
+			clients = append(clients, client)
+			clientsMutex.Unlock()
+		}(conn)
+	}
+	wgClients.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			return nil, err // Si un login falla, detenemos el proceso.
+		}
+	}
+
+	// 2. Obtener todos los datos de todas las conexiones en paralelo.
+	allData := &apiData{}
+	var dataMutex sync.Mutex
+	var wgData sync.WaitGroup
+	dataErrs := make(chan error, len(clients))
+
+	for _, client := range clients {
+		wgData.Add(1)
+		go func(cl *api.SaintClient) {
+			defer wgData.Done()
+			data, err := fetchAllAPIData(cl)
+			if err != nil {
+				dataErrs <- err
+				return
+			}
+			// Unir los datos de esta conexión con los datos consolidados.
+			dataMutex.Lock()
+			mergeApiData(allData, data)
+			dataMutex.Unlock()
+		}(client)
+	}
+	wgData.Wait()
+	close(dataErrs)
+
+	for err := range dataErrs {
+		if err != nil {
+			return nil, err // Si la obtención de datos de una conexión falla, detenemos.
+		}
+	}
+
+	// 3. Calcular los resúmenes con los datos ya consolidados.
+	var wgSummaries sync.WaitGroup
+	var currentSummary, previousSummary *models.ManagementSummary
+	var errCurrent, errPrevious error
+
+	wgSummaries.Add(2)
+	go func() {
+		defer wgSummaries.Done()
+		currentSummary, errCurrent = calculateSummaryForPeriod(allData, currentStart, currentEnd)
+	}()
+	go func() {
+		defer wgSummaries.Done()
+		previousSummary, errPrevious = calculateSummaryForPeriod(allData, prevStart, prevEnd)
+	}()
+	wgSummaries.Wait()
+
+	if errCurrent != nil {
+		return nil, errCurrent
+	}
+	if errPrevious != nil {
+		return nil, errPrevious
+	}
+
+	// 4. Construir y devolver el resumen comparativo final.
+	finalSummary := &models.ComparativeSummary{
+		CurrentPeriod:            *currentSummary,
+		PreviousPeriod:           *previousSummary,
+		TotalNetSalesComparative: calculateComparativeData(currentSummary.TotalNetSales, previousSummary.TotalNetSales),
+		GrossProfitComparative:   calculateComparativeData(currentSummary.GrossProfit, previousSummary.GrossProfit),
+		AverageTicketComparative: calculateComparativeData(currentSummary.AverageTicket, previousSummary.AverageTicket),
+	}
+
+	log.Println("Resumen consolidado calculado exitosamente.")
+	return finalSummary, nil
+}
+
+// GetComparativeSummary es el orquestador principal del servicio para UNA SOLA conexión.
 func GetComparativeSummary(client *api.SaintClient, currentStart, currentEnd, prevStart, prevEnd time.Time) (*models.ComparativeSummary, error) {
 	allData, err := fetchAllAPIData(client)
 	if err != nil {
@@ -63,6 +163,19 @@ type apiData struct {
 	products     []models.Product
 	customers    []models.Customer
 	sellers      []models.Seller
+}
+
+// NUEVA FUNCIÓN: mergeApiData
+// Combina los datos de un 'source' a un 'destination'.
+func mergeApiData(dest *apiData, src *apiData) {
+	dest.invoices = append(dest.invoices, src.invoices...)
+	dest.invoiceItems = append(dest.invoiceItems, src.invoiceItems...)
+	dest.purchases = append(dest.purchases, src.purchases...)
+	dest.receivables = append(dest.receivables, src.receivables...)
+	dest.payables = append(dest.payables, src.payables...)
+	dest.products = append(dest.products, src.products...)
+	dest.customers = append(dest.customers, src.customers...)
+	dest.sellers = append(dest.sellers, src.sellers...)
 }
 
 // fetchAllAPIData ejecuta todas las llamadas a la API de forma concurrente.

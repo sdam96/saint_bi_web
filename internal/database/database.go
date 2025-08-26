@@ -65,8 +65,8 @@ func InitDB() (*sql.DB, error) {
 			api_password TEXT NOT NULL,
 			refresh_seconds INTEGER NOT NULL,
 			config_id INTEGER NOT NULL,
-			currency_iso TEXT NOT NULL DEFAULT '',
-			locale TEXT NOT NULL DEFAULT 'en-US'
+			currency_iso TEXT NOT NULL DEFAULT 'VES',
+			locale_format TEXT NOT NULL DEFAULT 'en-US'
 		);
 	`
 	// 'DB.Exec' ejecuta una consulta SQL que no devuelve filas, como CREATE, INSERT, UPDATE o DELETE.
@@ -183,17 +183,17 @@ func AddConnection(conn models.Connection) error {
 
 // GetConnections devuelve todas las conexiones guardadas.
 func GetConnections() ([]models.Connection, error) {
-	rows, err := DB.Query("SELECT * FROM connections ORDER BY alias")
+	rows, err := DB.Query("SELECT id, alias, api_url, api_user, api_password, refresh_seconds, config_id, currency_iso, locale_format FROM connections ORDER BY alias")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	var connections []models.Connection
-	// El bucle 'for rows.Next()' es el patrón estándar en Go para procesar resultados de múltiples filas.
 	for rows.Next() {
 		var c models.Connection
-		if err := rows.Scan(&c.ID, &c.Alias, &c.ApiURL, &c.ApiUser, &c.ApiPassword, &c.RefreshSeconds, &c.ConfigID); err != nil {
+		// CORRECCIÓN: Se escanean todas las columnas en el orden correcto.
+		if err := rows.Scan(&c.ID, &c.Alias, &c.ApiURL, &c.ApiUser, &c.ApiPassword, &c.RefreshSeconds, &c.ConfigID, &c.CurrencyISO, &c.LocaleFormat); err != nil {
 			return nil, err
 		}
 		connections = append(connections, c)
@@ -201,11 +201,10 @@ func GetConnections() ([]models.Connection, error) {
 	return connections, nil
 }
 
-// GetConnectionByID busca una conexión por su ID.
 func GetConnectionByID(id int) (*models.Connection, error) {
 	conn := &models.Connection{}
-	err := DB.QueryRow("SELECT * FROM connections WHERE id = ?", id).Scan(
-		&conn.ID, &conn.Alias, &conn.ApiURL, &conn.ApiUser, &conn.ApiPassword, &conn.RefreshSeconds, &conn.ConfigID)
+	err := DB.QueryRow("SELECT id, alias, api_url, api_user, api_password, refresh_seconds, config_id, currency_iso, locale_format FROM connections WHERE id = ?", id).Scan(
+		&conn.ID, &conn.Alias, &conn.ApiURL, &conn.ApiUser, &conn.ApiPassword, &conn.RefreshSeconds, &conn.ConfigID, &conn.CurrencyISO, &conn.LocaleFormat)
 	if err != nil {
 		return nil, err
 	}

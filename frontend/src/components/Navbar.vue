@@ -2,15 +2,7 @@
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
       <router-link to="/dashboard" class="navbar-brand">Saint BI</router-link>
-      <button
-        class="navbar-toggler"
-        type="button"
-        data-bs-toggle="collapse"
-        data-bs-target="#navbarNav"
-        aria-controls="navbarNav"
-        aria-expanded="false"
-        aria-label="Toggle navigation"
-      >
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
         <span class="navbar-toggler-icon"></span>
       </button>
 
@@ -18,6 +10,16 @@
         <ul class="navbar-nav me-auto mb-2 mb-lg-0">
           <li class="nav-item">
             <router-link to="/dashboard" class="nav-link">Inicio</router-link>
+          </li>
+          
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAnalytics" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Análisis
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="navbarDropdownAnalytics">
+              <li><router-link to="/analytics/sales-forecast" class="dropdown-item">Proyección de Ventas</router-link></li>
+              <li><router-link to="/analytics/market-basket" class="dropdown-item">Análisis de Canasta</router-link></li>
+              </ul>
           </li>
           <li class="nav-item">
             <router-link to="/connections" class="nav-link">Conexiones</router-link>
@@ -39,16 +41,13 @@
 
 <script setup>
 import { useAuthStore } from '../store/auth';
-
 const authStore = useAuthStore();
-
 const handleLogout = () => {
   authStore.logout();
 };
 </script>
 
 <style scoped>
-/* 'scoped' significa que estos estilos solo se aplican a este componente */
 .router-link-active {
   font-weight: bold;
 }

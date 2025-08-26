@@ -40,6 +40,17 @@ export const useAuthStore = defineStore('auth', {
             }
         },
 
+        async extendSession() {
+            try {
+                await axios.post('/api/session/extend');
+                console.log('Sesión extendida exitosamente.');
+                return true;
+            } catch (error) {
+                console.error('Fallo al extender la sesión:', error);
+                return false;
+            }
+        },
+
         // Acción para manejar el cierre de sesión.
         async logout() {
             try {

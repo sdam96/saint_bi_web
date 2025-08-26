@@ -47,6 +47,10 @@ func main() {
 	mux.HandleFunc("POST /api/login", handlers.Login)
 	mux.HandleFunc("POST /api/logout", handlers.Logout)
 	mux.HandleFunc("POST /api/force-password-change", handlers.ForcePasswordChange)
+	mux.Handle("POST /api/session/extend", handlers.AuthMiddleware(http.HandlerFunc(handlers.ExtendSession)))
+
+	mux.Handle("GET /api/analytics/sales-forecast", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetSalesForecastHandler)))
+	mux.Handle("GET /api/analytics/market-basket", handlers.AuthMiddleware(http.HandlerFunc(handlers.GetMarketBasketHandler)))
 
 	// --- Rutas de la API (Protegidas) ---
 	// Cada una de estas rutas se envuelve con nuestro 'AuthMiddleware'.

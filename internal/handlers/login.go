@@ -165,3 +165,22 @@ func ForcePasswordChange(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Contraseña actualizada exitosamente"})
 }
+
+// ExtendSession refresca la cookie de la sesión para extender su tiempo de vida.
+// Responde a una solicitud POST a /api/session/extend.
+func ExtendSession(w http.ResponseWriter, r *http.Request) {
+	session, err := auth.Store.Get(r, "session-name")
+	if err != nil || session.IsNew {
+		respondWithError(w, http.StatusUnauthorized, "Sesión no válida o no encontrada")
+		return
+	}
+
+	// Simplemente volviendo a guardar la sesión, el middleware de gorilla/sessions
+	// actualizará la fecha de expiración de la cookie.
+	if err := session.Save(r, w); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "No se pudo extender la sesión")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, map[string]string{"message": "Sesión extendida"})
+}

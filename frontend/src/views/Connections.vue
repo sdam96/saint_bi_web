@@ -17,10 +17,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-if="store.connections.length === 0">
+              <tr v-if="filteredConnections.length === 0">
                 <td colspan="4" class="text-center">No hay conexiones configuradas.</td>
               </tr>
-              <tr v-for="conn in store.connections" :key="conn.ID">
+              <tr v-for="conn in filteredConnections" :key="conn.ID">
                 <td>{{ conn.Alias }}</td>
                 <td>{{ conn.ApiURL }}</td>
                 <td>{{ conn.ApiUser }}</td>
@@ -38,30 +38,30 @@
         <h2>Agregar Conexión</h2>
         <form @submit.prevent="handleAddConnection">
           <div class="mb-3">
-            <label class="form-label">Alias:</label>
-            <input type="text" v-model="newConnection.Alias" class="form-control" required>
+            <label for="alias" class="form-label">Alias</label>
+            <input type="text" id="alias" v-model="newConnection.Alias" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">URL API:</label>
-            <input type="text" v-model="newConnection.ApiURL" class="form-control" required placeholder="http://localhost:6163">
+            <label for="api_url" class="form-label">URL de la API</label>
+            <input type="url" id="api_url" v-model="newConnection.ApiURL" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Usuario API:</label>
-            <input type="text" v-model="newConnection.ApiUser" class="form-control" required>
+            <label for="api_user" class="form-label">Usuario API</label>
+            <input type="text" id="api_user" v-model="newConnection.ApiUser" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Clave API:</label>
-            <input type="password" v-model="newConnection.ApiPassword" class="form-control" required>
+            <label for="api_password" class="form-label">Clave API</label>
+            <input type="password" id="api_password" v-model="newConnection.ApiPassword" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">ID Configuración:</label>
-            <input type="number" v-model.number="newConnection.ConfigID" class="form-control" required>
+            <label for="config_id" class="form-label">ID de Configuración</label>
+            <input type="number" id="config_id" v-model.number="newConnection.ConfigID" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Refrescar cada (segundos):</label>
-            <input type="number" v-model.number="newConnection.RefreshSeconds" class="form-control" required>
+            <label for="refresh_seconds" class="form-label">Tiempo de Refresco (segundos)</label>
+            <input type="number" id="refresh_seconds" v-model.number="newConnection.RefreshSeconds" class="form-control" required>
           </div>
-          <button type="submit" class="btn btn-primary">Guardar Conexión</button>
+          <button type="submit" class="btn btn-primary">Agregar Conexión</button>
         </form>
       </div>
     </div>
@@ -69,19 +69,22 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useAdminStore } from '../store/admin';
 
 const store = useAdminStore();
 
-// Usamos 'ref' para el estado local del formulario
 const newConnection = ref({
   Alias: '',
   ApiURL: '',
   ApiUser: '',
   ApiPassword: '',
   ConfigID: 1,
-  RefreshSeconds: 60,
+  RefreshSeconds: 300,
+});
+
+const filteredConnections = computed(() => {
+  return store.connections.filter(c => c.ID !== 0); 
 });
 
 onMounted(() => {
@@ -90,14 +93,9 @@ onMounted(() => {
 
 const handleAddConnection = async () => {
   await store.addConnection(newConnection.value);
-  // Limpiamos el formulario después de enviar
   newConnection.value = {
-    Alias: '',
-    ApiURL: '',
-    ApiUser: '',
-    ApiPassword: '',
-    ConfigID: 1,
-    RefreshSeconds: 60,
+    Alias: '', ApiURL: '', ApiUser: '', ApiPassword: '',
+    ConfigID: 1, RefreshSeconds: 300,
   };
 };
 </script>

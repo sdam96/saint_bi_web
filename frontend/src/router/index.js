@@ -12,6 +12,8 @@ import CustomerDetail from '../views/CustomerDetail.vue';
 import ProductDetail from '../views/ProductDetail.vue';
 import SellerDetail from '../views/SellerDetail.vue';
 import Settings from '../views/Settings.vue';
+import SalesForecast from '../views/SalesForecast.vue';
+import MarketBasket from '../views/MarketBasket.vue';
 
 const routes = [
     {
@@ -84,6 +86,19 @@ const routes = [
         component: ProductDetail,
         meta: {requiresAuth: true},
         props: true
+    },
+
+    {
+        path: '/analytics/sales-forecast',
+        name: 'SalesForecast',
+        component: SalesForecast,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/analytics/market-basket',
+        name: 'MarketBasket',
+        component: MarketBasket,
+        meta: { requiresAuth: true }
     },
     {
         path: '/',
