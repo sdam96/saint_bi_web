@@ -1,85 +1,169 @@
 // internal/services/summary.go
+
+// La declaración 'package services' indica que este archivo pertenece al paquete 'services'.
+// Este paquete encapsula la lógica de negocio principal de la aplicación, como los cálculos
+// de KPIs y la orquestación de llamadas a la API externa.
 package services
 
 import (
+	// "fmt" para formatear strings de error.
 	"fmt"
+	// "log" para registrar información y errores en la terminal.
 	"log"
+	// "sort" para ordenar los slices de los rankings (Top 5).
 	"sort"
+	// "sync" proporciona primitivas de sincronización como WaitGroups y Mutexes,
+	// esenciales para manejar la concurrencia de forma segura.
 	"sync"
+	// "time" para parsear, comparar y manipular fechas y horas.
 	"time"
 
-	"saintnet.com/m/internal/api"
-	"saintnet.com/m/internal/models"
+	// Se importan nuestros paquetes internos.
+	"saintnet.com/m/internal/api"    // Para interactuar con la API de Saint.
+	"saintnet.com/m/internal/models" // Para usar las estructuras de datos del negocio.
 )
 
-// NUEVA FUNCIÓN: GetConsolidatedSummary
-// Orquesta el proceso de consolidación para múltiples conexiones.
+// GetConsolidatedSummary orquesta el proceso de cálculo del resumen para la vista "Consolidada".
+//
+// LÓGICA:
+// Esta función es altamente concurrente para maximizar el rendimiento.
+// 1. Inicia sesión en TODAS las conexiones de la base de datos de forma paralela.
+// 2. Una vez autenticadas, descarga TODOS los datos necesarios de CADA conexión, también en paralelo.
+// 3. Une (merge) todos los datos de todas las conexiones en una única gran estructura de datos.
+// 4. Calcula los KPIs para el período actual y el anterior usando esta estructura de datos consolidada.
+// 5. Ensambla y devuelve el resumen comparativo final.
+//
+// PARÁMETROS:
+//   - connections ([]models.Connection): Un slice con la información de todas las conexiones a procesar.
+//   - currentStart, currentEnd, prevStart, prevEnd (time.Time): Los rangos de fecha para el período actual y el anterior.
+//
+// RETORNA:
+//   - *models.ComparativeSummary: Un puntero al resumen comparativo completo.
+//   - error: Un error si alguna de las operaciones (login, obtención de datos) falla.
 func GetConsolidatedSummary(connections []models.Connection, currentStart, currentEnd, prevStart, prevEnd time.Time) (*models.ComparativeSummary, error) {
-	// 1. Crear y autenticar todos los clientes de API en paralelo.
+	// --- 1. Autenticación en Paralelo ---
+	// SINTAXIS de Go: `make([]*api.SaintClient, 0, len(connections))` crea un slice de punteros a SaintClient.
+	// Se preasigna la capacidad (`len(connections)`) para mejorar la eficiencia y evitar múltiples reasignaciones de memoria.
 	clients := make([]*api.SaintClient, 0, len(connections))
+	// Un Mutex (Exclusión Mutua) es un candado que previene que múltiples goroutines escriban
+	// en el mismo slice (`clients`) al mismo tiempo, evitando condiciones de carrera.
 	var clientsMutex sync.Mutex
 	var wgClients sync.WaitGroup
+	// Un canal (chan) es un conducto tipado a través del cual puedes enviar y recibir valores.
+	// Se usa para comunicar errores desde las goroutines de vuelta a la función principal.
 	errs := make(chan error, len(connections))
 
+	// SINTAXIS de Go: `for _, conn := range connections` itera sobre el slice de conexiones.
+	// El guion bajo `_` descarta el índice, ya que solo nos interesa el valor `conn`.
 	for _, conn := range connections {
+		// `wgClients.Add(1)` incrementa el contador del WaitGroup.
 		wgClients.Add(1)
+		// `go func(...)` inicia una nueva goroutine (un hilo de ejecución ligero).
+		// El código dentro de la función se ejecutará concurrentemente.
 		go func(c models.Connection) {
+			// `defer wgClients.Done()` decrementa el contador del WaitGroup cuando la goroutine termina.
 			defer wgClients.Done()
 			client := api.NewSaintClient(c.ApiURL)
-			// Las credenciales de la API externa (apiKey, apiID) podrían estar hardcodeadas o venir de la configuración.
 			if err := client.Login(c.ApiUser, c.ApiPassword, "B5D31933-C996-476C-B116-EF212A41479A", "1093"); err != nil {
+				// Si el login falla, se envía el error al canal. `%w` envuelve el error original.
 				errs <- fmt.Errorf("error al iniciar sesión en '%s': %w", c.Alias, err)
 				return
 			}
+			// Se bloquea el mutex antes de escribir en el slice compartido.
 			clientsMutex.Lock()
 			clients = append(clients, client)
-			clientsMutex.Unlock()
+			clientsMutex.Unlock() // Se desbloquea inmediatamente después.
 		}(conn)
 	}
+	// `wgClients.Wait()` bloquea la ejecución hasta que el contador del WaitGroup llegue a cero,
+	// es decir, hasta que todas las goroutines de login hayan terminado.
 	wgClients.Wait()
-	close(errs)
+	close(errs) // Se cierra el canal para indicar que no se enviarán más errores.
 
+	// Se leen todos los errores del canal.
 	for err := range errs {
 		if err != nil {
-			return nil, err // Si un login falla, detenemos el proceso.
+			return nil, err
 		}
 	}
 
-	// 2. Obtener todos los datos de todas las conexiones en paralelo.
+	// --- 2. Obtención de Datos en Paralelo ---
+	// LÓGICA: Este bloque es el corazón de la consolidación. Su objetivo es descargar todos los
+	// datos (facturas, productos, clientes, etc.) de todos los clientes de API autenticados
+	// de forma simultánea y unirlos en una única estructura de datos (`allData`).
+
+	// SINTAXIS de Go: `allData := &apiData{}` crea una nueva instancia de la struct `apiData`
+	// y `allData` se convierte en un puntero a esa instancia. Usamos un puntero para que la función
+	// `mergeApiData` pueda modificar directamente la instancia original.
 	allData := &apiData{}
+	// `var dataMutex sync.Mutex` declara un Mutex para proteger el acceso concurrente a `allData`.
+	// Es crucial porque múltiples goroutines intentarán escribir en `allData` al mismo tiempo.
 	var dataMutex sync.Mutex
+	// `var wgData sync.WaitGroup` declara un WaitGroup para sincronizar la finalización de
+	// todas las goroutines de descarga de datos.
 	var wgData sync.WaitGroup
+	// `dataErrs := make(chan error, len(clients))` crea un canal para recolectar errores
+	// que puedan ocurrir durante la descarga de datos de cualquiera de las conexiones.
 	dataErrs := make(chan error, len(clients))
 
+	// Se itera sobre cada cliente de API que se autenticó exitosamente.
 	for _, client := range clients {
+		// `wgData.Add(1)` incrementa el contador, indicando que una nueva tarea concurrente va a comenzar.
 		wgData.Add(1)
+		// `go func(cl *api.SaintClient) { ... }(client)` inicia una nueva goroutine.
+		// SINTAXIS de Go: Esta es una "función anónima" o "closure". Le pasamos `client` como
+		// argumento (`cl`) para asegurarnos de que cada goroutine capture la copia correcta
+		// de la variable `client` del bucle. Esto previene un error común en Go donde todas
+		// las goroutines podrían terminar usando la última variable del bucle.
 		go func(cl *api.SaintClient) {
+			// `defer wgData.Done()` asegura que el contador del WaitGroup se decremente
+			// sin importar cómo termine la goroutine (con o sin error).
 			defer wgData.Done()
+			// `fetchAllAPIData(cl)` es la función que descarga TODOS los datos de UNA sola conexión.
 			data, err := fetchAllAPIData(cl)
 			if err != nil {
+				// Si hay un error, se envía al canal de errores y la goroutine termina.
 				dataErrs <- err
 				return
 			}
-			// Unir los datos de esta conexión con los datos consolidados.
+			// `dataMutex.Lock()` adquiere el "candado". Solo una goroutine puede ejecutar el código
+			// entre Lock() y Unlock() a la vez. Esto es vital para evitar que se corrompan los datos
+			// en el slice `allData` al ser modificado por múltiples hilos.
 			dataMutex.Lock()
+			// `mergeApiData` une los datos recién descargados (`data`) con el contenedor global (`allData`).
 			mergeApiData(allData, data)
+			// `dataMutex.Unlock()` libera el candado, permitiendo que otra goroutine pueda acceder.
 			dataMutex.Unlock()
 		}(client)
 	}
+	// `wgData.Wait()` detiene la ejecución de la función `GetConsolidatedSummary` hasta que
+	// todas las goroutines de descarga hayan llamado a `wgData.Done()`.
 	wgData.Wait()
+	// `close(dataErrs)` cierra el canal de errores, señalando que ya no se enviarán más valores.
+	// Esto es necesario para que el bucle `for...range` de abajo sepa cuándo terminar.
 	close(dataErrs)
 
+	// SINTAXIS de Go: `for err := range dataErrs` itera sobre el canal hasta que se cierre.
+	// Recibirá cada error que haya sido enviado al canal.
 	for err := range dataErrs {
 		if err != nil {
-			return nil, err // Si la obtención de datos de una conexión falla, detenemos.
+			// Si se encuentra cualquier error, se detiene todo el proceso y se devuelve el error.
+			return nil, err
 		}
 	}
 
-	// 3. Calcular los resúmenes con los datos ya consolidados.
-	var wgSummaries sync.WaitGroup
-	var currentSummary, previousSummary *models.ManagementSummary
-	var errCurrent, errPrevious error
+	// --- 3. Cálculo de Resúmenes en Paralelo ---
+	// LÓGICA: Una vez que tenemos todos los datos consolidados en `allData`, calculamos los
+	// resúmenes para el período actual y el anterior. Hacemos esto también en paralelo,
+	// ya que un cálculo puede ser independiente del otro, ahorrando tiempo.
 
+	var wgSummaries sync.WaitGroup
+	// Se declaran punteros a `ManagementSummary`. Serán `nil` inicialmente. Las goroutines
+	// asignarán las structs calculadas a estas variables.
+	var currentSummary, previousSummary *models.ManagementSummary
+	var errCurrent, errPrevious error // Variables para capturar errores de cada goroutine.
+
+	// Se le dice al WaitGroup que vamos a esperar a que 2 goroutines terminen.
 	wgSummaries.Add(2)
 	go func() {
 		defer wgSummaries.Done()
@@ -89,8 +173,10 @@ func GetConsolidatedSummary(connections []models.Connection, currentStart, curre
 		defer wgSummaries.Done()
 		previousSummary, errPrevious = calculateSummaryForPeriod(allData, prevStart, prevEnd)
 	}()
+	// Se espera a que ambas goroutines de cálculo terminen.
 	wgSummaries.Wait()
 
+	// Se comprueban los errores después de que ambas tareas han finalizado.
 	if errCurrent != nil {
 		return nil, errCurrent
 	}
@@ -98,7 +184,11 @@ func GetConsolidatedSummary(connections []models.Connection, currentStart, curre
 		return nil, errPrevious
 	}
 
-	// 4. Construir y devolver el resumen comparativo final.
+	// --- 4. Ensamblaje Final de la Respuesta ---
+	// LÓGICA: Se construye la estructura `ComparativeSummary` final.
+	// SINTAXIS de Go: `*currentSummary` y `*previousSummary` desreferencian los punteros,
+	// obteniendo el valor de la struct `ManagementSummary` a la que apuntan. Esto es necesario
+	// porque los campos `CurrentPeriod` y `PreviousPeriod` en `ComparativeSummary` son structs, no punteros.
 	finalSummary := &models.ComparativeSummary{
 		CurrentPeriod:            *currentSummary,
 		PreviousPeriod:           *previousSummary,
@@ -107,11 +197,16 @@ func GetConsolidatedSummary(connections []models.Connection, currentStart, curre
 		AverageTicketComparative: calculateComparativeData(currentSummary.AverageTicket, previousSummary.AverageTicket),
 	}
 
-	log.Println("Resumen consolidado calculado exitosamente.")
+	log.Println("[INFO] Resumen consolidado calculado exitosamente.")
 	return finalSummary, nil
 }
 
 // GetComparativeSummary es el orquestador principal del servicio para UNA SOLA conexión.
+//
+// LÓGICA:
+// 1. Llama a `fetchAllAPIData` para obtener todos los datos de la API para el cliente proporcionado.
+// 2. Calcula el resumen para el período actual y el anterior en paralelo para optimizar.
+// 3. Ensambla la respuesta final, incluyendo los datos comparativos.
 func GetComparativeSummary(client *api.SaintClient, currentStart, currentEnd, prevStart, prevEnd time.Time) (*models.ComparativeSummary, error) {
 	allData, err := fetchAllAPIData(client)
 	if err != nil {
@@ -140,7 +235,6 @@ func GetComparativeSummary(client *api.SaintClient, currentStart, currentEnd, pr
 		return nil, errPrevious
 	}
 
-	// CORRECCIÓN: Se cambió la etiqueta JSON incorrecta.
 	finalSummary := &models.ComparativeSummary{
 		CurrentPeriod:            *currentSummary,
 		PreviousPeriod:           *previousSummary,
@@ -149,11 +243,12 @@ func GetComparativeSummary(client *api.SaintClient, currentStart, currentEnd, pr
 		AverageTicketComparative: calculateComparativeData(currentSummary.AverageTicket, previousSummary.AverageTicket),
 	}
 
-	log.Println("Resumen gerencial comparativo calculado exitosamente.")
+	log.Println("[INFO] Resumen gerencial comparativo calculado exitosamente.")
 	return finalSummary, nil
 }
 
-// apiData es una struct interna que actúa como un contenedor para todos los datos.
+// apiData es una struct interna que actúa como un contenedor temporal para todos los
+// datos obtenidos de la API. Esto simplifica pasar los datos entre funciones.
 type apiData struct {
 	invoices     []models.Invoice
 	invoiceItems []models.InvoiceItem
@@ -165,8 +260,11 @@ type apiData struct {
 	sellers      []models.Seller
 }
 
-// NUEVA FUNCIÓN: mergeApiData
-// Combina los datos de un 'source' a un 'destination'.
+// mergeApiData combina los datos de un `src` (fuente) en `dest` (destino).
+//
+// SINTAXIS de Go: `append(dest.invoices, src.invoices...)` es la forma de unir dos slices.
+// El `...` (operador de expansión) despliega los elementos del slice `src` para que `append`
+// los pueda añadir individualmente al slice `dest`.
 func mergeApiData(dest *apiData, src *apiData) {
 	dest.invoices = append(dest.invoices, src.invoices...)
 	dest.invoiceItems = append(dest.invoiceItems, src.invoiceItems...)
@@ -178,11 +276,16 @@ func mergeApiData(dest *apiData, src *apiData) {
 	dest.sellers = append(dest.sellers, src.sellers...)
 }
 
-// fetchAllAPIData ejecuta todas las llamadas a la API de forma concurrente.
+// fetchAllAPIData ejecuta todas las llamadas a la API de forma concurrente para un único cliente.
+//
+// LÓGICA:
+// Se crea un slice de funciones anónimas (`apiCalls`). Cada función representa una llamada a un endpoint
+// de la API. Este patrón permite iterar sobre ellas y lanzar cada llamada en su propia goroutine,
+// haciendo que todas las descargas de datos ocurran simultáneamente en lugar de una por una.
 func fetchAllAPIData(client *api.SaintClient) (*apiData, error) {
 	data := &apiData{}
 	var wg sync.WaitGroup
-	errs := make(chan error, 8)
+	errs := make(chan error, 8) // Canal con buffer para 8 posibles errores.
 
 	apiCalls := []func() error{
 		func() error { var err error; data.invoices, err = client.GetInvoices(); return err },
@@ -210,18 +313,21 @@ func fetchAllAPIData(client *api.SaintClient) (*apiData, error) {
 
 	for err := range errs {
 		if err != nil {
-			log.Printf("Error obteniendo datos de la API: %v", err)
+			log.Printf("[ERROR] Falla al obtener datos de la API de Saint: %v", err)
 			return nil, err
 		}
 	}
 	return data, nil
 }
 
-// calculateSummaryForPeriod contiene la lógica de cálculo completa y corregida.
+// calculateSummaryForPeriod es el corazón del servicio. Contiene toda la lógica
+// para calcular los KPIs a partir de un conjunto de datos ya cargado.
 func calculateSummaryForPeriod(data *apiData, startDate, endDate time.Time) (*models.ManagementSummary, error) {
 	summary := &models.ManagementSummary{}
 	now := time.Now()
 
+	// LÓGICA: Se crea un mapa para acceder rápidamente a las cabeceras de factura por su NumeroD.
+	// Esto es mucho más eficiente que buscar en el slice de facturas repetidamente dentro de un bucle.
 	invoiceHeaderMap := make(map[string]models.Invoice)
 	for _, inv := range data.invoices {
 		if inv.NumeroD != nil {
@@ -229,11 +335,15 @@ func calculateSummaryForPeriod(data *apiData, startDate, endDate time.Time) (*mo
 		}
 	}
 
+	// LÓGICA: Se filtran las facturas que están dentro del rango de fechas y se calculan los KPIs de ventas.
 	var invoicesInPeriod []models.Invoice
 	for _, inv := range data.invoices {
 		if inv.FechaE != nil {
+			// SINTAXIS de Go: `time.Parse` convierte un string a un objeto `time.Time` usando un layout de referencia.
+			// Las funciones `date.Before()` y `date.After()` se usan para la comparación de fechas.
 			if date, err := time.Parse("2006-01-02 15:04:05", *inv.FechaE); err == nil && !date.Before(startDate) && !date.After(endDate) {
 				invoicesInPeriod = append(invoicesInPeriod, inv)
+				// SINTAXIS de Go: Se debe comprobar que los punteros no sean `nil` antes de desreferenciarlos con `*`.
 				if inv.MtoTotal != nil {
 					summary.TotalNetSales += *inv.MtoTotal
 				}
@@ -246,7 +356,6 @@ func calculateSummaryForPeriod(data *apiData, startDate, endDate time.Time) (*mo
 				if inv.CostoPrd != nil {
 					summary.CostOfGoodsSold += *inv.CostoPrd
 				}
-				// CÁLCULO DE IMPUESTOS RESTAURADO
 				if inv.MtoTax != nil {
 					summary.SalesVAT += *inv.MtoTax
 				}
@@ -267,6 +376,7 @@ func calculateSummaryForPeriod(data *apiData, startDate, endDate time.Time) (*mo
 		summary.GrossProfitMargin = (summary.GrossProfit / summary.TotalNetSales) * 100
 	}
 
+	// LÓGICA: Se calculan los KPIs de Cuentas por Cobrar.
 	for _, r := range data.receivables {
 		if r.Saldo != nil && *r.Saldo > 0 {
 			summary.TotalReceivables += *r.Saldo
@@ -286,7 +396,7 @@ func calculateSummaryForPeriod(data *apiData, startDate, endDate time.Time) (*mo
 		summary.ReceivablePercentage = (summary.OverdueReceivables / summary.TotalReceivables) * 100
 	}
 
-	// --- LÓGICA DE CUENTAS POR PAGAR RESTAURADA ---
+	// LÓGICA: Se calculan los KPIs de Cuentas por Pagar e Impuestos.
 	var totalPurchasesCredit float64
 	for _, p := range data.purchases {
 		if p.FechaE != nil {
@@ -294,7 +404,6 @@ func calculateSummaryForPeriod(data *apiData, startDate, endDate time.Time) (*mo
 				if p.Credito != nil {
 					totalPurchasesCredit += *p.Credito
 				}
-				// CÁLCULO DE IMPUESTOS RESTAURADO
 				if p.MtoTax != nil {
 					summary.PurchasesVAT += *p.MtoTax
 				}
@@ -318,11 +427,10 @@ func calculateSummaryForPeriod(data *apiData, startDate, endDate time.Time) (*mo
 	if totalPurchasesCredit > 0 {
 		summary.PayablesTurnoverDays = (summary.TotalPayables / totalPurchasesCredit) * daysInRange
 	}
-	// --- FIN DE LA LÓGICA RESTAURADA ---
 
 	summary.VATPayable = summary.SalesVAT - summary.PurchasesVAT
 
-	// Conteo de clientes y productos activos (no depende del rango de fechas)
+	// LÓGICA: Se calculan los totales generales, estos no dependen del rango de fechas.
 	for _, c := range data.customers {
 		if c.Activo != nil && *c.Activo == 1 {
 			summary.TotalActiveClients++
@@ -337,6 +445,7 @@ func calculateSummaryForPeriod(data *apiData, startDate, endDate time.Time) (*mo
 		}
 	}
 
+	// LÓGICA: Se calculan todos los rankings Top 5 llamando a las funciones auxiliares.
 	summary.Top5ClientsBySales = rankItems(calculateSalesByClient(data.invoiceItems, invoiceHeaderMap, data.customers))
 	summary.Top5ProductsBySales = rankItems(calculateSalesByProduct(data.invoiceItems, data.products))
 	summary.Top5SellersBySales = rankItems(calculateSalesBySeller(data.invoiceItems, invoiceHeaderMap, data.sellers))
@@ -345,6 +454,7 @@ func calculateSummaryForPeriod(data *apiData, startDate, endDate time.Time) (*mo
 	return summary, nil
 }
 
+// calculateComparativeData es una función auxiliar que calcula la diferencia porcentual entre dos valores.
 func calculateComparativeData(current, previous float64) models.ComparativeData {
 	data := models.ComparativeData{
 		Value:         current,
@@ -353,12 +463,19 @@ func calculateComparativeData(current, previous float64) models.ComparativeData 
 	if previous != 0 {
 		data.PercentageChange = ((current - previous) / previous) * 100
 	} else if current > 0 {
+		// LÓGICA: Si el valor anterior era 0 y el actual es positivo, se considera un crecimiento del 100%.
 		data.PercentageChange = 100
 	}
 	return data
 }
 
-// ... (El resto de las funciones auxiliares para los rankings no necesitan cambios)
+// --- Funciones Auxiliares para Rankings ---
+// LÓGICA: Las siguientes cuatro funciones (`calculate...`) tienen un patrón similar:
+// 1. Crean un mapa de nombres (ej. CodClie a Descrip) para una búsqueda eficiente.
+// 2. Crean un mapa para agregar los valores (ej. ventas por cliente).
+// 3. Iteran sobre los datos relevantes (ej. items de factura) y suman los valores en el mapa de agregación.
+// 4. Devuelven el mapa con los totales.
+
 func calculateSalesByClient(items []models.InvoiceItem, headerMap map[string]models.Invoice, customers []models.Customer) map[string]float64 {
 	salesMap := make(map[string]float64)
 	nameMap := make(map[string]string)
@@ -369,7 +486,7 @@ func calculateSalesByClient(items []models.InvoiceItem, headerMap map[string]mod
 	}
 	for _, item := range items {
 		if item.NumeroD == nil || item.TotalItem == nil {
-			continue
+			continue // Salta a la siguiente iteración si los datos necesarios son nulos.
 		}
 		if header, ok := headerMap[*item.NumeroD]; ok {
 			if header.CodClie != nil {
@@ -446,16 +563,21 @@ func calculateProfitByProduct(items []models.InvoiceItem, products []models.Prod
 	return profitMap
 }
 
+// rankItems convierte un mapa de resultados en un slice ordenado y lo corta a los 5 mejores.
 func rankItems(itemsMap map[string]float64) []models.RankedItem {
 	var ranked []models.RankedItem
 	for name, value := range itemsMap {
 		ranked = append(ranked, models.RankedItem{Name: name, Value: value})
 	}
 
+	// SINTAXIS de Go: `sort.Slice` ordena un slice usando una función de comparación personalizada (un closure).
+	// La función devuelve `true` si el elemento en el índice `i` debe ir antes que el del índice `j`.
 	sort.Slice(ranked, func(i, j int) bool {
-		return ranked[i].Value > ranked[j].Value
+		return ranked[i].Value > ranked[j].Value // Orden descendente
 	})
 
+	// SINTAXIS de Go: `ranked[:5]` es una "operación de slice" que devuelve un nuevo slice
+	// conteniendo los elementos desde el inicio hasta el índice 4 (los 5 primeros).
 	if len(ranked) > 5 {
 		return ranked[:5]
 	}
